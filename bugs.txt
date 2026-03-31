@@ -1,0 +1,179 @@
+ORBIT — POTENTIAL BUGS & ISSUES
+================================
+Scanned: 2026-03-31
+Files covered: app/, backend/, frontend/, middleware.ts
+
+Each entry includes: file path, relevant lines, severity, and explanation.
+
+--------------------------------------------------------------------------------
+BUG 1 — onClick event handler in a Server Component (no confirmation dialog)
+--------------------------------------------------------------------------------
+File:     app/profile/[id]/page.tsx
+Lines:    54-66 (the <form action={deleteThisProfile}> block)
+Severity: HIGH
+
+The "Delete person" button has an onClick handler that calls window.confirm()
+and calls e.preventDefault() to abort submission if the user cancels. However,
+ProfilePage is a Server Component. React Server Components cannot attach event
+handlers — the onClick prop will be stripped at serialization time, meaning the
+confirm dialog never appears and the delete fires immediately on button click
+with no user confirmation.
+
+Fix: Extract the delete button and its confirmation logic into a small
+"use client" Client Component so the onClick runs in the browser.
+
+--------------------------------------------------------------------------------
+BUG 2 — Delete actions fire-and-forget with no error feedback
+--------------------------------------------------------------------------------
+File:     frontend/components/ui/DeleteButton.tsx
+Lines:    20 (onClick={onDelete})
+Severity: HIGH
+
+onClick={onDelete} calls the bound server action but does not await it. If the
+server action returns an error string (e.g., RLS rejection, network failure),
+the error is silently discarded and the user sees nothing — the item visually
+remains in the list until the next page refresh.
+
+Fix: Add useTransition (or useActionState) inside DeleteButton to await the
+action, handle the returned error string, and optionally show a toast or inline
+message.
+
+--------------------------------------------------------------------------------
+BUG 3 — Stale error state persists when switching login modes
+--------------------------------------------------------------------------------
+File:     app/login/page.tsx
+Lines:    9-14
+Severity: MEDIUM
+
+Two separate useActionState calls hold signInError and signUpError independently.
+When a user fails sign-in (signInError is set), switches to sign-up mode, makes
+a sign-up error (signUpError is set), then switches back to sign-in — the
+original signInError is still in state and is immediately displayed, even though
+no sign-in was attempted in that session. The user sees a stale error message
+from a previous attempt.
+
+Fix: Reset the relevant error state when the mode changes, e.g. by using a key
+prop on the form or calling a reset function provided by useActionState.
+
+--------------------------------------------------------------------------------
+BUG 4 — No input validation on date fields (birthday, event_date)
+--------------------------------------------------------------------------------
+File:     backend/actions/index.ts
+Lines:    12-28 (ProfileSchema, EventSchema)
+Severity: MEDIUM
+
+ProfileSchema uses z.string().optional() for birthday and EventSchema uses
+z.string().min(1) for event_date. Neither validates that the string is an actual
+valid date/datetime. A malformed string (e.g. "not-a-date", "9999-99-99") passes
+Zod validation and is inserted into the database. Downstream code that calls
+new Date(profile.birthday) or new Date(event.event_date) will silently produce
+an Invalid Date, breaking display in dashboard/page.tsx (line 55) and
+profile/[id]/page.tsx (lines 80, 118).
+
+Fix: Replace z.string().optional() with z.string().date().optional() and
+z.string().datetime() (or z.coerce.date()) so Zod rejects malformed values
+before they reach the DB.
+
+--------------------------------------------------------------------------------
+BUG 5 — Delete actions rely solely on RLS with no server-side user check
+--------------------------------------------------------------------------------
+File:     backend/actions/index.ts
+Lines:    143-148 (deleteFact), 196-201 (deleteEvent)
+Severity: MEDIUM
+
+deleteFact and deleteEvent do not retrieve the current user and do not add a
+.eq("user_id", user.id) clause to the delete query. Security currently depends
+entirely on Supabase RLS. If RLS is ever accidentally disabled (e.g., during a
+migration, a Supabase dashboard misclick, or a policy bug), any authenticated
+user could delete any fact or event by supplying a known UUID.
+
+Contrast with createFact/createEvent which do call supabase.auth.getUser() and
+attach user_id explicitly.
+
+Fix: Add getUser() + .eq("user_id", user.id) to both delete queries as
+defense-in-depth, mirroring the pattern used in the create actions.
+
+--------------------------------------------------------------------------------
+BUG 6 — Data fetch errors are silently swallowed
+--------------------------------------------------------------------------------
+File:     app/dashboard/page.tsx — line 18-21 (profiles query)
+          app/profile/[id]/page.tsx — lines 34-45 (facts + events queries)
+Severity: MEDIUM
+
+Supabase queries return { data, error }. The error field is destructured away
+and never checked. If a query fails (network timeout, RLS misconfiguration,
+DB error), data is null and the page renders as if the user simply has no data
+("No people yet", "No facts recorded yet"). The user has no way to distinguish
+an empty state from a failed fetch.
+
+Fix: Destructure error alongside data and render an error message (or throw to
+the nearest error boundary / error.tsx) when error is non-null.
+
+--------------------------------------------------------------------------------
+BUG 7 — Middleware crashes on Supabase auth failure
+--------------------------------------------------------------------------------
+File:     middleware.ts
+Lines:    34-36 (supabase.auth.getUser())
+Severity: MEDIUM
+
+supabase.auth.getUser() is called without a try/catch. If Supabase is
+unreachable (network error, service outage), the call throws and Next.js returns
+a 500 to every request, making the entire app inaccessible — including the login
+page. Users see an unhandled error rather than a graceful fallback.
+
+Fix: Wrap the getUser() call in try/catch and treat a thrown error as an
+unauthenticated state (redirect to /login), or return the response unchanged to
+allow static assets through.
+
+--------------------------------------------------------------------------------
+BUG 8 — deleteProfile does not return null on success path
+--------------------------------------------------------------------------------
+File:     backend/actions/index.ts
+Lines:    106-118 (deleteProfile)
+Severity: LOW
+
+deleteProfile is typed as Promise<string | null>. On the success path it calls
+redirect("/dashboard"), which throws internally in Next.js (never returns).
+There is no explicit return null after revalidatePath/redirect. TypeScript
+accepts this because redirect() returns never, but callers that expect a
+string | null result (e.g. an await deleteProfile(...) check) will never receive
+a null — the redirect interrupts execution. This is currently fine since
+deleteProfile is only called via a form action, but the signature is misleading
+and could cause confusion if the function is reused.
+
+Fix: Either change the return type to Promise<string | never> / Promise<string>
+or add a comment clarifying that success always redirects.
+
+--------------------------------------------------------------------------------
+BUG 9 — app/actions.ts re-export barrel lacks "use server" directive
+--------------------------------------------------------------------------------
+File:     app/actions.ts
+Lines:    1-4
+Severity: LOW
+
+app/actions.ts re-exports all server actions from @backend/actions via
+export * from "@backend/actions". The underlying module has "use server" at its
+top, so the functions are individually marked. However, a bare re-export file
+without its own "use server" directive can cause bundler edge cases: if Next.js
+or a third-party tool statically analyses this barrel without following the
+re-export chain, the functions may not be recognised as server actions in all
+code-splitting scenarios.
+
+Fix: Add "use server"; as the first line of app/actions.ts.
+
+--------------------------------------------------------------------------------
+BUG 10 — useFormAction hook: action reference instability
+--------------------------------------------------------------------------------
+File:     frontend/hooks/useFormAction.ts
+Lines:    19-26
+Severity: LOW
+
+useActionState is initialised once on mount. The inner async callback captures
+action via closure, but useActionState does not re-run if action changes between
+renders. If a caller passes an unstable function reference (e.g. an inline arrow
+function), the hook will silently continue using the original action reference.
+Current callers all pass stable module-level server actions, so this does not
+manifest today, but it is a latent bug for future callers.
+
+Fix: Document in the hook's JSDoc that action must be a stable reference (a
+module-level server action or a useCallback-wrapped function).
