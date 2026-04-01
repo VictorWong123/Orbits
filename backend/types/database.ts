@@ -28,3 +28,11 @@ export interface Event {
   notes: string | null;
   created_at: string;
 }
+
+/** Represents a row in the `user_settings` table. */
+export interface UserSettings {
+  user_id: string;
+  palette_id: string;
+  created_at: string;
+  updated_at: string;
+}

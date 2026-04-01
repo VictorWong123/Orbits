@@ -20,17 +20,22 @@ export default function AddFactForm({ profileId }: Props) {
         <input
           name="content"
           type="text"
-          placeholder="Add a fact..."
+          placeholder="Add a note..."
           required
-          className="flex-1 border rounded px-3 py-2 text-sm"
+          className="flex-1 bg-[var(--color-primary-light)] rounded-full px-4 py-2.5 text-sm text-[#1A3021] placeholder:text-[var(--color-accent)] border-0 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
         <input
           name="category"
           type="text"
-          placeholder="Category (optional)"
-          className="w-36 border rounded px-3 py-2 text-sm"
+          placeholder="Category"
+          className="w-28 bg-[var(--color-primary-light)] rounded-full px-4 py-2.5 text-sm text-[#1A3021] placeholder:text-[var(--color-accent)] border-0 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
-        <SubmitButton isPending={isPending} label="Add" pendingLabel="..." />
+        <SubmitButton
+          isPending={isPending}
+          label="Add"
+          pendingLabel="..."
+          className="bg-[var(--color-primary)] text-white rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-50 hover:bg-[var(--color-primary-dark)] transition-colors shrink-0"
+        />
       </div>
       <FormError error={error} />
     </form>

@@ -1,0 +1,69 @@
+{
+    "app_name": "Orbit",
+    "view": "Profile Detail",
+    "data_points": {
+        "header": {
+            "name": "Sarah Chen",
+            "relationship": "Friend",
+            "action_icons": [
+                "Back",
+                "Information",
+                "Edit"
+            ]
+        },
+        "sections": [
+            {
+                "id": "notes",
+                "label": "Notes",
+                "count": 2,
+                "active": false
+            },
+            {
+                "id": "info",
+                "label": "Info",
+                "active": true
+            }
+        ],
+        "fields": [
+            {
+                "label": "Lives in",
+                "value": "Seattle"
+            },
+            {
+                "label": "Birthday",
+                "value": "March 16, 1992"
+            },
+            {
+                "label": "Work / School",
+                "value": "Tech Startup"
+            },
+            {
+                "label": "Grew up in",
+                "value": "San Francisco"
+            },
+            {
+                "label": "Hobbies",
+                "value": "Rock climbing, photography, cooking Thai food"
+            },
+            {
+                "label": "Favorite Coffee",
+                "value": "Oat milk latte with vanilla"
+            }
+        ],
+        "tags": [
+            "Birthday in Spring",
+            "Seattle Locals",
+            "Tech Startup Crew"
+        ]
+    },
+    "styling_notes": {
+        "font_family": "Inter or System Sans",
+        "background_color": "#FFFFFF",
+        "text_colors": {
+            "primary": "#000000",
+            "secondary": "#6B7280",
+            "accent": "#3B82F6"
+        },
+        "layout": "Vertical stack with horizontal padding. Section tabs should have a bottom border indicator for the active state."
+    }
+}

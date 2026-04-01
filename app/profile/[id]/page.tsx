@@ -2,18 +2,16 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@backend/lib/supabase/server";
-import { deleteProfile, deleteFact, deleteEvent } from "@backend/actions";
-import AddFactForm from "@frontend/components/AddFactForm";
-import AddEventForm from "@frontend/components/AddEventForm";
-import DeleteButton from "@frontend/components/ui/DeleteButton";
+import { deleteProfile } from "@backend/actions";
+import ProfileTabs from "@frontend/components/ProfileTabs";
 import DeleteProfileButton from "@frontend/components/ui/DeleteProfileButton";
-import type { Fact, Event } from "@backend/types/database";
+import UserAvatar from "@frontend/components/UserAvatar";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-/** Profile detail page — shows a person's facts and upcoming events. */
+/** Profile detail page — shows a person's notes (facts) and info (events + birthday). */
 export default async function ProfilePage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
@@ -57,88 +55,38 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   return (
-    <main className="max-w-2xl mx-auto p-6 space-y-8">
-      <header className="flex items-center justify-between">
+    <main className="max-w-md mx-auto bg-[#FDFBF7] min-h-screen">
+      {/* Header: back | name | avatar + actions */}
+      <header className="flex items-center gap-3 px-6 py-6">
         <Link
           href="/dashboard"
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-black"
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
+          aria-label="Back"
         >
-          <ArrowLeft size={16} />
-          Back
+          <ArrowLeft size={18} />
         </Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold text-[#1A3021] truncate">{profile.full_name}</h1>
+        </div>
         <DeleteProfileButton
           profileName={profile.full_name}
           action={deleteThisProfile}
         />
+        <UserAvatar email={user.email ?? ""} />
       </header>
 
-      <section>
-        <h1 className="text-2xl font-bold">{profile.full_name}</h1>
-        {profile.birthday && (
-          <p className="text-sm text-gray-500 mt-1">
-            Birthday: {new Date(profile.birthday).toLocaleDateString()}
-          </p>
-        )}
-      </section>
-
-      {/* Facts */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Facts</h2>
-        <AddFactForm profileId={id} />
-        {facts && facts.length > 0 ? (
-          <ul className="space-y-2">
-            {facts.map((fact: Fact) => (
-              <li
-                key={fact.id}
-                className="flex items-start justify-between gap-2 p-3 border rounded"
-              >
-                <div>
-                  <p className="text-sm">{fact.content}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{fact.category}</p>
-                </div>
-                <DeleteButton
-                  onDelete={deleteFact.bind(null, fact.id, id)}
-                  ariaLabel="Delete fact"
-                />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-400 text-sm">No facts recorded yet.</p>
-        )}
-      </section>
-
-      {/* Events */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Events</h2>
-        <AddEventForm profileId={id} />
-        {events && events.length > 0 ? (
-          <ul className="space-y-2">
-            {events.map((event: Event) => (
-              <li
-                key={event.id}
-                className="flex items-start justify-between gap-2 p-3 border rounded"
-              >
-                <div>
-                  <p className="font-medium text-sm">{event.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {new Date(event.event_date).toLocaleString()}
-                  </p>
-                  {event.notes && (
-                    <p className="text-sm text-gray-600 mt-1">{event.notes}</p>
-                  )}
-                </div>
-                <DeleteButton
-                  onDelete={deleteEvent.bind(null, event.id, id)}
-                  ariaLabel="Delete event"
-                />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-400 text-sm">No events recorded yet.</p>
-        )}
-      </section>
+      {/* Tabbed content */}
+      <div className="px-6 pb-8">
+        <ProfileTabs
+          profile={{
+            id: profile.id,
+            full_name: profile.full_name,
+            birthday: profile.birthday,
+          }}
+          facts={facts ?? []}
+          events={events ?? []}
+        />
+      </div>
     </main>
   );
 }

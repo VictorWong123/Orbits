@@ -1,0 +1,34 @@
+{
+    "view": "Home / Directory",
+    "components": {
+        "header": {
+            "type": "Search Bar",
+            "placeholder": "Search by name, relationship, or tag...",
+            "leading_icon": "Search",
+            "style": "Rounded with subtle border, light gray background"
+        },
+        "list_item": {
+            "structure": {
+                "avatar": "Circular, 2-letter initials (e.g., 'SC')",
+                "identity": {
+                    "name": "Bold, primary text",
+                    "relationship": "Secondary text, adjacent or below name"
+                },
+                "metadata": {
+                    "tags": "Horizontal list of pills",
+                    "last_edit": "Small, muted text (e.g., 'Last edit 6 minutes ago')"
+                },
+                "trailing": "Chevron icon ('>') for navigation"
+            },
+            "styling": {
+                "spacing": "Vertical padding between items",
+                "divider": "Thin bottom border between items",
+                "alignment": "Grid or Flex with distinct columns for Avatar, Info, and Trailing icon"
+            }
+        }
+    },
+    "visual_logic": {
+        "tag_overflow": "If more than one tag exists, show '+1' or '+n' indicator",
+        "timestamp_format": "Relative time (e.g., '6 minutes ago', 'last week')"
+    }
+}

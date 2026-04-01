@@ -43,7 +43,7 @@ export default function DeleteProfileButton({ profileName, action }: Props) {
         type="button"
         onClick={handleClick}
         disabled={isPending}
-        className="text-sm text-red-500 underline disabled:opacity-50"
+        className="text-xs font-medium text-[var(--color-accent)] hover:text-red-400 disabled:opacity-50 transition-colors"
       >
         {isPending ? "Deleting…" : "Delete person"}
       </button>

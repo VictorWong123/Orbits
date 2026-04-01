@@ -15,7 +15,7 @@ export default function SubmitButton({
   isPending,
   label,
   pendingLabel,
-  className = "bg-black text-white rounded px-3 py-2 text-sm disabled:opacity-50",
+  className = "bg-black text-white rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50 hover:bg-gray-900 transition-colors",
 }: Props) {
   return (
     <button type="submit" disabled={isPending} className={className}>

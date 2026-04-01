@@ -1,0 +1,17 @@
+{
+    "theme": "Cozy Garden",
+    "primary_color": "#4F6F52",
+    "surface_color": "#FDFBF7",
+    "accent_color": "#86A789",
+    "visual_style": {
+        "border_radius": "24px",
+        "card_style": "Soft elevation with no borders",
+        "typography": "Rounded Sans (e.g., Quicksand or Varela Round)",
+        "spacing": "Relaxed / Breathable"
+    },
+    "elements": {
+        "search_bar": "Deep sage text on a light cream-green pill background",
+        "pills": "Soft forest green with white text",
+        "avatars": "Organic, slightly irregular rounded shapes"
+    }
+}

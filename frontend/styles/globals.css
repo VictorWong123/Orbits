@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+  Default CSS custom properties for the color theme.
+  These are overridden at runtime by ThemeProvider (client) and by the
+  inline `style` prop on <body> in layout.tsx (server-rendered, no flash).
+*/
+:root {
+  --color-primary: #4F6F52;
+  --color-primary-dark: #3d5940;
+  --color-primary-light: #f0f7f0;
+  --color-accent: #86A789;
+}

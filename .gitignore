@@ -36,3 +36,7 @@ next-env.d.ts
 # Production build
 build/
 dist/
+claude.local.md
+
+.playwright-mcp/
+
