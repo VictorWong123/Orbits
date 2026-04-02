@@ -1,0 +1,405 @@
+REFACTORING REPORT — Orbits Codebase
+Generated: 2026-04-01
+================================================================================
+
+This report documents refactoring opportunities found by scanning all TypeScript/TSX
+source files. No code changes are proposed — this is an analysis only.
+
+================================================================================
+1. FILES/COMPONENTS WITH MORE THAN ONE FUNCTION
+================================================================================
+
+A. backend/actions/index.ts (329 lines)
+   ─────────────────────────────────────
+   Contains 11 functions spanning 5 unrelated domains:
+
+   Authentication:
+     - signIn()       line 44–58
+     - signUp()       line 64–78
+     - signOut()      line 83–87
+
+   Settings:
+     - getSettings()     line 97–112
+     - updateSettings()  line 121–135
+
+   Profile Management:
+     - createProfile()  line 145–172
+     - deleteProfile()  line 181–193
+
+   Fact Management:
+     - createFact()  line 203–231
+     - deleteFact()  line 239–260
+
+   Event Management:
+     - createEvent()  line 270–299
+     - deleteEvent()  line 307–328
+
+   Problem: A single file acts as a monolithic hub for all server-side mutations.
+   Potential solution: Split by domain into separate files:
+     - backend/actions/auth.ts
+     - backend/actions/settings.ts
+     - backend/actions/profiles.ts
+     - backend/actions/facts.ts
+     - backend/actions/events.ts
+     - backend/actions/index.ts  (re-exports only)
+
+--------------------------------------------------------------------------------
+
+B. frontend/components/ProfileList.tsx (149 lines)
+   ─────────────────────────────────────────────────
+   Functions:
+     - getInitials()   line 27–31  (derives 2-letter initials from a full name)
+     - relativeTime()  line 37–50  (converts ISO date → "X days ago" string)
+     - ProfileList()   line 58–148 (main component)
+
+   Problem: Two utility functions are defined inside a component file, making
+   them impossible to reuse elsewhere without importing the component.
+   Potential solution: Move getInitials() and relativeTime() to
+   frontend/lib/formatters.ts.
+
+--------------------------------------------------------------------------------
+
+C. frontend/components/ProfileTabs.tsx (207 lines)
+   ──────────────────────────────────────────────────
+   Functions:
+     - ProfileTabs()    line 27–177  (main component — handles tabs, notes,
+                                      info, events, and tags all in one)
+     - formatCategory() line 192–196 (snake_case → Title Case converter)
+     - InfoField()      line 199–206 (sub-component for a label/value pair)
+
+   Problem: The main component renders 5 conceptually distinct sections (tab
+   switcher, notes tab, info tab, events section, tag pills). formatCategory()
+   is a general utility buried here.
+   Potential solution:
+     - Move formatCategory() to frontend/lib/formatters.ts
+     - Extract InfoField into its own file or a shared ui/ sub-component
+     - Break ProfileTabs into smaller sub-components:
+         NotesTab, InfoTab, EventsSection, TagPills
+
+--------------------------------------------------------------------------------
+
+D. frontend/components/UserAvatar.tsx (119 lines)
+   ────────────────────────────────────────────────
+   Functions:
+     - emailInitials()  line 19–24  (derives initials from an email address)
+     - UserAvatar()     line 31–94  (main component — avatar button + dropdown)
+     - DropdownItem()   line 107–118 (sub-component for a single menu item)
+
+   Problem: Initials logic is duplicated from ProfileList but handles email
+   addresses instead of full names. DropdownItem is a standalone sub-component
+   that could be reused.
+   Potential solution:
+     - Merge emailInitials() and getInitials() into a single parameterized
+       utility in frontend/lib/formatters.ts
+     - Extract DropdownItem into frontend/components/ui/DropdownItem.tsx
+     - Optionally extract the dropdown itself into a reusable Dropdown component
+
+--------------------------------------------------------------------------------
+
+E. frontend/components/ui/SettingsModal.tsx (140 lines)
+   ──────────────────────────────────────────────────────
+   Functions:
+     - SettingsModal()  line 21–105  (main component)
+     - PaletteSwatch()  line 118–139 (sub-component for a color swatch button)
+
+   Problem: PaletteSwatch is an independently renderable sub-component defined
+   at the bottom of the parent file.
+   Potential solution: Extract PaletteSwatch to
+   frontend/components/ui/PaletteSwatch.tsx so it can be independently tested
+   and reused.
+
+--------------------------------------------------------------------------------
+
+F. frontend/lib/theme.ts (92 lines)
+   ──────────────────────────────────
+   Exports:
+     - PALETTES           line 18–67  (constant — array of palette definitions)
+     - DEFAULT_PALETTE_ID line 69     (constant)
+     - getPalette()       line 75–77  (looks up a palette by id)
+     - paletteToStyleVars() line 84–91 (converts palette → CSS variable map)
+
+   Problem: Mixing data constants with transformation functions. Minor issue
+   but worth noting.
+   Potential solution: Keep constants in theme.ts and move pure transformation
+   functions to frontend/lib/theme-utils.ts, or leave as-is if the file stays
+   small.
+
+--------------------------------------------------------------------------------
+
+G. frontend/lib/supabase/ThemeProvider.tsx (73 lines)
+   ────────────────────────────────────────────────────
+   Exports:
+     - ThemeContext   line 25–28  (React context object)
+     - useTheme()     line 31–33  (hook that reads from ThemeContext)
+     - ThemeProvider() line 54–72 (Provider component)
+
+   Problem: Context, hook, and component are collocated — acceptable pattern
+   but the hook could live in a dedicated hooks/ file.
+   Potential solution: Move useTheme() to frontend/hooks/useTheme.ts for
+   consistency with a hooks/ convention, if one is adopted.
+
+================================================================================
+2. DUPLICATE CODE
+================================================================================
+
+A. Initials Derivation Logic — 2 separate implementations
+   ─────────────────────────────────────────────────────────
+   Location 1: frontend/components/ProfileList.tsx :: getInitials() (line 27–31)
+     - Splits on whitespace, takes first character of first and last word.
+
+   Location 2: frontend/components/UserAvatar.tsx :: emailInitials() (line 19–24)
+     - Splits email local part on separators (. _ - +), same logic otherwise.
+
+   Both functions implement the same "pick two letters from a tokenized string"
+   algorithm with minor differences in the separator regex.
+   Potential solution: Single utility in frontend/lib/formatters.ts:
+     function getInitials(text: string, separatorPattern?: RegExp): string
+
+--------------------------------------------------------------------------------
+
+B. Supabase Client Creation — 3 separate implementations
+   ────────────────────────────────────────────────────────
+   Location 1: middleware.ts (line 11–30)
+     Uses createServerClient with request.cookies.getAll / response.cookies.set.
+
+   Location 2: backend/lib/supabase/server.ts (line 11–32)
+     Uses createServerClient with cookieStore.getAll / cookieStore.set.
+
+   Location 3: frontend/lib/supabase/client.ts (line 8–12)
+     Uses createBrowserClient.
+
+   The two server-side variants repeat the same environment variable references
+   and near-identical cookie handler signatures.
+   Potential solution: Extract environment variable constants into a shared
+   config file and reduce cookie handler boilerplate with a helper factory.
+
+--------------------------------------------------------------------------------
+
+C. Authentication Check — 5+ repetitions
+   ─────────────────────────────────────────
+   This exact pattern repeats in every mutating server action:
+
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) return "Not authenticated";
+
+   Locations in backend/actions/index.ts:
+     - createProfile()  line 151–154
+     - createFact()     line 209–212
+     - createEvent()    line 276–279
+
+   Also in page components:
+     - app/dashboard/page.tsx      line 11–14
+     - app/profile/[id]/page.tsx   line 19–22
+
+   Potential solution: Extract to backend/lib/auth-helpers.ts:
+     async function requireAuthenticatedUser(): Promise<User | string>
+   Returns the user or an error string, eliminating the repeated inline guard.
+
+--------------------------------------------------------------------------------
+
+D. Zod safeParse + Error Extraction — 3 repetitions
+   ────────────────────────────────────────────────────
+   Every mutating action runs:
+
+     const parsed = XxxSchema.safeParse({ ... });
+     if (!parsed.success) return parsed.error.errors[0].message;
+
+   Locations in backend/actions/index.ts:
+     - createProfile()  line 156–161
+     - createFact()     line 214–220
+     - createEvent()    line 281–288
+
+   Potential solution: Extract generic validator helper:
+     function parseOrError<T>(schema: ZodSchema<T>, data: unknown): T | string
+   Returns parsed data or the first Zod error message as a string.
+
+--------------------------------------------------------------------------------
+
+E. revalidatePath Calls — 4 repetitions for profile paths
+   ──────────────────────────────────────────────────────────
+   revalidatePath(`/profile/${profileId}`) appears in:
+     - createFact()   line 229
+     - deleteFact()   line 258
+     - createEvent()  line 297
+     - deleteEvent()  line 326
+
+   revalidatePath("/dashboard") appears in:
+     - createProfile()  line 170
+     - deleteProfile()  line 191
+
+   Potential solution: Extract helpers:
+     function invalidateProfileCache(profileId: string): void
+     function invalidateDashboardCache(): void
+
+--------------------------------------------------------------------------------
+
+F. Input Field Tailwind Classes — 7+ repetitions
+   ─────────────────────────────────────────────────
+   Pattern 1 (colored pill input — used in fact/event forms):
+     "bg-[var(--color-primary-light)] rounded-full px-4 py-2.5 text-sm
+      text-[#1A3021] placeholder:text-[var(--color-accent)] border-0
+      outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+
+   Locations:
+     - frontend/components/AddFactForm.tsx   line 25, 31
+     - frontend/components/AddEventForm.tsx  line 26, 35
+     - frontend/components/ui/DateTimePicker.tsx line 92 (button variant)
+
+   Pattern 2 (white pill input — used in profile/search forms):
+     "bg-white rounded-full px-4 py-3 text-sm text-[var(--color-primary)]
+      placeholder:text-[var(--color-accent)] border border-gray-200
+      outline-none focus:ring-2 focus:ring-gray-200"
+
+   Locations:
+     - frontend/components/AddProfileForm.tsx  line 54
+     - frontend/components/ProfileList.tsx     line 81
+
+   Potential solution: Create a reusable component:
+     frontend/components/ui/PillInput.tsx
+   with a variant prop ("colored" | "white"), or define the class strings as
+   Tailwind @apply utilities.
+
+--------------------------------------------------------------------------------
+
+G. Error Display Pattern — 5 distinct implementations
+   ──────────────────────────────────────────────────────
+   A FormError component exists but is not used consistently:
+
+   Location 1: frontend/components/FormError.tsx line 13
+     <p className="text-sm text-red-600 ...">
+
+   Location 2: frontend/components/DeleteButton.tsx line 47
+     <span className="text-red-500 text-xs ...">
+
+   Location 3: frontend/components/DeleteProfileButton.tsx line 50
+     <p className="text-red-500 text-xs ...">
+
+   Location 4: frontend/components/ui/SettingsModal.tsx line 82
+     <p className="text-sm text-red-500 ...">
+
+   Location 5: app/login/page.tsx line 81
+     <p className="text-red-500 bg-red-50 rounded-2xl px-4 py-2.5 ...">
+
+   Varying text sizes (text-xs vs text-sm), colors (red-500 vs red-600), and
+   structural context.
+   Potential solution: Extend FormError with a size/variant prop and use it
+   everywhere. Remove the one-off inline error paragraphs.
+
+--------------------------------------------------------------------------------
+
+H. Outside Click Detection — 2 identical useEffect patterns
+   ──────────────────────────────────────────────────────────
+   Pattern:
+     useEffect(() => {
+       function handleOutsideClick(e: MouseEvent) {
+         if (ref.current && !ref.current.contains(e.target as Node)) {
+           setOpen(false);
+         }
+       }
+       if (isOpen) document.addEventListener("mousedown", handleOutsideClick);
+       return () => document.removeEventListener("mousedown", handleOutsideClick);
+     }, [isOpen]);
+
+   Locations:
+     - frontend/components/UserAvatar.tsx         line 37–45
+     - frontend/components/ui/DateTimePicker.tsx  line 37–49
+
+   Potential solution: Extract custom hook to frontend/hooks/useOutsideClick.ts:
+     function useOutsideClick(
+       ref: RefObject<HTMLElement>,
+       callback: () => void,
+       isActive: boolean
+     ): void
+
+--------------------------------------------------------------------------------
+
+I. Date Formatting — 2 near-identical toLocaleDateString calls
+   ──────────────────────────────────────────────────────────────
+   Location 1: frontend/components/ProfileTabs.tsx line 107
+     new Date(profile.birthday + "T00:00:00").toLocaleDateString("en-US", {
+       month: "long", day: "numeric", year: "numeric"
+     })
+
+   Location 2: frontend/components/ProfileTabs.tsx line 140
+     new Date(event.event_date).toLocaleDateString("en-US", {
+       month: "short", day: "numeric", year: "numeric"
+     })
+
+   Both exist in the same file but are not shared. The "T00:00:00" suffix on
+   the birthday path is a subtle timezone-safety fix that could be missed if
+   someone copies the second pattern.
+   Potential solution: Extract to frontend/lib/formatters.ts:
+     function formatBirthdayDate(dateStr: string): string
+     function formatEventDate(dateStr: string): string
+
+================================================================================
+3. LARGE COMPONENTS THAT SHOULD BE BROKEN DOWN
+================================================================================
+
+A. frontend/components/ProfileTabs.tsx (207 lines)
+   ──────────────────────────────────────────────────
+   The component renders 5 conceptually separate sections in a single JSX tree:
+     - Tab switcher bar          (lines 39–66)
+     - Notes tab content         (lines 69–95)
+     - Info tab with fields      (lines 99–122)
+     - Events list + add form    (lines 124–158)
+     - Tag pills                 (lines 160–172)
+
+   Potential solution: Extract each section into a focused sub-component.
+   ProfileTabs becomes a thin orchestrator that passes data and callbacks.
+
+--------------------------------------------------------------------------------
+
+B. frontend/components/UserAvatar.tsx (119 lines)
+   ────────────────────────────────────────────────
+   Combines: avatar trigger button, dropdown rendering, user info display,
+   settings modal open/close, and sign-out action.
+   Potential solution:
+     - AvatarButton — just the circular avatar trigger
+     - AccountDropdown — dropdown menu contents
+     - DropdownItem — reusable item (already defined inline, line 107–118)
+
+================================================================================
+4. SUGGESTED SHARED UTILITY FILES TO CREATE
+================================================================================
+
+frontend/lib/formatters.ts
+  - getInitials(text: string, separatorPattern?: RegExp): string
+  - formatCategory(category: string): string
+  - formatBirthdayDate(dateStr: string): string
+  - formatEventDate(dateStr: string): string
+  - relativeTime(dateStr: string): string
+
+frontend/hooks/useOutsideClick.ts
+  - useOutsideClick(ref, callback, isActive): void
+
+backend/lib/auth-helpers.ts
+  - requireAuthenticatedUser(): Promise<User | string>
+  - getAuthenticatedUser(): Promise<User | null>
+
+backend/lib/validators.ts  (or co-locate per domain)
+  - parseOrError<T>(schema: ZodSchema<T>, data: unknown): T | string
+
+================================================================================
+5. SUMMARY TABLE
+================================================================================
+
+Category                          Files Affected   Severity   Effort
+─────────────────────────────────────────────────────────────────────
+Monolithic actions file           1                High       High
+Multi-function component files    5                Medium     Medium
+Duplicate initials logic          2                Low        Low
+Duplicate Supabase client setup   3                Low        Medium
+Repeated auth guard pattern       5+               Medium     Low
+Repeated Zod safeParse pattern    3                Low        Low
+Repeated revalidatePath calls     4                Low        Low
+Duplicate input Tailwind classes  7+               Low        Medium
+Inconsistent error display        5                Low        Low
+Duplicate outside-click effects   2                Low        Low
+Duplicate date formatting         2                Low        Low
+Oversized component functions     2                Medium     High
+Scattered utility functions       10+              Medium     Medium
+
+================================================================================
+END OF REPORT
+================================================================================

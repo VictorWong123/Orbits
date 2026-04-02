@@ -1,8 +1,8 @@
 "use client";
 
 import { UserPlus } from "lucide-react";
-import { createProfile } from "@backend/actions";
-import { useFormAction } from "@frontend/hooks/useFormAction";
+import { useStoreAction } from "@frontend/hooks/useStoreAction";
+import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import SubmitButton from "@frontend/components/ui/SubmitButton";
 import FormError from "@frontend/components/ui/FormError";
 import PillInput from "@frontend/components/ui/PillInput";
@@ -10,34 +10,42 @@ import PillInput from "@frontend/components/ui/PillInput";
 interface Props {
   /** Names of all existing profiles, used for duplicate-name detection. */
   existingNames: string[];
+  /** Called after a profile is successfully created so the parent can re-fetch. */
+  onSuccess?: () => void;
 }
 
 /** Form to add a new person to the user's orbit. Resets on success. */
-export default function AddProfileForm({ existingNames }: Props) {
-  const { error, formAction, isPending, formRef } = useFormAction(createProfile);
+export default function AddProfileForm({ existingNames, onSuccess }: Props) {
+  const { store } = useDataStore();
+  const { error, isPending, formRef, execute } = useStoreAction(
+    (input: { full_name: string }) => store.createProfile(input),
+    onSuccess
+  );
+
+  /** Extracts field values and calls the store action. */
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    const form = e.currentTarget;
+    const full_name = (form.elements.namedItem("full_name") as HTMLInputElement).value.trim();
+
+    const isDuplicate = existingNames.some(
+      (name) => name.trim().toLowerCase() === full_name.toLowerCase()
+    );
+    if (isDuplicate) {
+      const confirmed = window.confirm(
+        `You already have someone named "${full_name}". Is this a different person?`
+      );
+      if (!confirmed) return;
+    }
+
+    execute({ full_name });
+  }
 
   return (
     <form
       ref={formRef}
-      action={formAction}
-      onSubmit={(e) => {
-        /**
-         * Intercepts form submission to warn the user when the entered name
-         * already exists among their profiles. The user can choose to cancel
-         * (duplicate entry) or confirm (intentionally different person).
-         */
-        const enteredName =
-          (e.currentTarget.elements.namedItem("full_name") as HTMLInputElement)?.value?.trim() ?? "";
-        const isDuplicate = existingNames.some(
-          (name) => name.trim().toLowerCase() === enteredName.toLowerCase()
-        );
-        if (isDuplicate) {
-          const confirmed = window.confirm(
-            `You already have someone named "${enteredName}". Is this a different person?`
-          );
-          if (!confirmed) e.preventDefault();
-        }
-      }}
+      onSubmit={handleSubmit}
       className="bg-white rounded-3xl shadow-sm p-6 space-y-4"
     >
       <h2 className="text-sm font-bold text-[#1A3021] flex items-center gap-2">

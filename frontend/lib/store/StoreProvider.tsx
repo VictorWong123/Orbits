@@ -1,0 +1,124 @@
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createClient } from "@frontend/lib/supabase/client";
+import { LocalDataStore } from "./LocalDataStore";
+import { SupabaseDataStore } from "./SupabaseDataStore";
+import MigrationModal from "@frontend/components/ui/MigrationModal";
+import type { DataStore } from "./types";
+
+// ── Context shape ─────────────────────────────────────────────────────────────
+
+interface StoreContextValue {
+  /** The active DataStore instance (local or Supabase depending on auth). */
+  store: DataStore;
+  /** True when the user has an authenticated Supabase session. */
+  isAuthenticated: boolean;
+  /**
+   * The authenticated user's email, null when not signed in, or undefined
+   * while the initial session check is still in-flight. Components should
+   * render nothing (or a skeleton) while this is undefined to avoid a flash
+   * of wrong content.
+   */
+  userEmail: string | null | undefined;
+}
+
+const StoreContext = createContext<StoreContextValue | null>(null);
+
+/**
+ * Returns the current StoreContext value.
+ * Must be called inside a component rendered under StoreProvider.
+ */
+export function useDataStore(): StoreContextValue {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error("useDataStore must be called inside <StoreProvider>");
+  return ctx;
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
+
+interface Props {
+  children: ReactNode;
+}
+
+/**
+ * Provides the active DataStore and authenticated user info to the entire app.
+ *
+ * On mount it checks the existing Supabase session and subscribes to auth
+ * state changes so the correct store instance is used at all times:
+ * - Unauthenticated → LocalDataStore (localStorage)
+ * - Authenticated   → SupabaseDataStore (Supabase browser client)
+ *
+ * When the user signs in after having local data, a MigrationModal is shown
+ * offering to sync their local records into Supabase.
+ */
+export function StoreProvider({ children }: Props) {
+  const [userEmail, setUserEmail] = useState<string | null | undefined>(undefined);
+  const [migrationPending, setMigrationPending] = useState(false);
+  const [localProfileCount, setLocalProfileCount] = useState(0);
+
+  // Keep a stable reference to the Supabase client — never re-create it.
+  const supabase = useRef(createClient()).current;
+
+  // Track previous userEmail to detect the null→string transition (sign-in).
+  const prevUserEmail = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    // Resolve the existing session immediately so the UI renders the correct
+    // initial state (avoids a flicker from the undefined loading state).
+    supabase.auth.getSession().then(({ data }) => {
+      setUserEmail(data.session?.user?.email ?? null);
+    });
+
+    // Subscribe to all future auth state changes (sign-in, sign-out, refresh).
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  // Detect the null → string transition (user just signed in from not-authenticated).
+  useEffect(() => {
+    if (prevUserEmail.current === null && typeof userEmail === "string") {
+      const localProfiles: unknown[] = JSON.parse(
+        localStorage.getItem("orbits:profiles") ?? "[]"
+      );
+      if (localProfiles.length > 0) {
+        setLocalProfileCount(localProfiles.length);
+        setMigrationPending(true);
+      }
+    }
+    prevUserEmail.current = userEmail;
+  }, [userEmail]);
+
+  const isAuthenticated = typeof userEmail === "string";
+
+  const store = useMemo<DataStore>(
+    () => (isAuthenticated ? new SupabaseDataStore() : new LocalDataStore()),
+    [isAuthenticated]
+  );
+
+  return (
+    <StoreContext.Provider value={{ store, isAuthenticated, userEmail }}>
+      {children}
+      {migrationPending && (
+        <MigrationModal
+          profileCount={localProfileCount}
+          onConfirm={() => setMigrationPending(false)}
+          onSkip={() => setMigrationPending(false)}
+        />
+      )}
+    </StoreContext.Provider>
+  );
+}

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { PALETTES, type PaletteId } from "@frontend/lib/theme";
 import { useTheme } from "@frontend/components/ui/ThemeProvider";
-import { updateSettings } from "@backend/actions";
+import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import PaletteSwatch from "@frontend/components/ui/PaletteSwatch";
 import FormError from "@frontend/components/ui/FormError";
 
@@ -22,6 +22,7 @@ interface Props {
  */
 export default function SettingsModal({ isOpen, onClose }: Props) {
   const { paletteId, setPaletteId } = useTheme();
+  const { store } = useDataStore();
   const [selected, setSelected] = useState<PaletteId>(paletteId);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +34,11 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
     if (e.target === e.currentTarget) onClose();
   }
 
-  /** Persists the selected palette then updates the live theme. */
+  /** Persists the selected palette via the active store, then updates the live theme. */
   function handleSave() {
     setError(null);
     startTransition(async () => {
-      const err = await updateSettings(selected);
+      const err = await store.updatePaletteId(selected);
       if (err) {
         setError(err);
       } else {

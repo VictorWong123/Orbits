@@ -1,16 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@backend/lib/supabase/config";
 
 /**
- * Refreshes the user's session on every request and redirects
- * unauthenticated users to /login for protected routes.
+ * Refreshes the user's Supabase session on every request.
+ *
+ * Routing rules:
+ * - /login        → 301 redirect to /account (legacy route)
+ * - /account      → redirect to /dashboard when already authenticated
+ * - All other routes are open to unauthenticated users (localStorage mode).
  */
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -40,15 +45,16 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
-  const isAuthRoute = pathname.startsWith("/login");
 
-  if (!user && !isAuthRoute) {
+  // Redirect legacy /login to /account.
+  if (pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    url.pathname = "/account";
+    return NextResponse.redirect(url, 301);
   }
 
-  if (user && isAuthRoute) {
+  // Authenticated users visiting /account go straight to the dashboard.
+  if (user && pathname.startsWith("/account")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

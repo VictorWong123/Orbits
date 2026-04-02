@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import AddFactForm from "@frontend/components/AddFactForm";
 import AddEventForm from "@frontend/components/AddEventForm";
 import DeleteButton from "@frontend/components/ui/DeleteButton";
 import InfoField from "@frontend/components/ui/InfoField";
-import { deleteFact, deleteEvent } from "@backend/actions";
+import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import { formatCategory, formatBirthdayDate, formatEventDate } from "@frontend/lib/formatters";
 import type { Fact, Event } from "@backend/types/database";
 
@@ -19,6 +19,8 @@ interface Props {
   profile: Profile;
   facts: Fact[];
   events: Event[];
+  /** Called after any mutation so the parent can re-fetch fresh data. */
+  onMutate: () => void;
 }
 
 /**
@@ -26,7 +28,8 @@ interface Props {
  * "Notes" shows all facts; "Info" shows structured label-value fields,
  * events, and category tag pills. Uses a sliding pill-shaped tab switch.
  */
-export default function ProfileTabs({ profile, facts, events }: Props) {
+export default function ProfileTabs({ profile, facts, events, onMutate }: Props) {
+  const { store } = useDataStore();
   const [activeTab, setActiveTab] = useState<"notes" | "info">("info");
 
   /** Unique non-default categories from facts, shown as tag pills in Info tab. */
@@ -34,6 +37,26 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
 
   /** Facts with a specific category, rendered as structured fields in Info tab. */
   const infoFacts = facts.filter((f) => f.category && f.category !== "general");
+
+  /** Deletes a fact via the store and triggers a parent re-fetch. */
+  const handleDeleteFact = useCallback(
+    async (factId: string): Promise<string> => {
+      const err = await store.deleteFact(factId, profile.id);
+      if (!err) onMutate();
+      return err ?? "";
+    },
+    [store, profile.id, onMutate]
+  );
+
+  /** Deletes an event via the store and triggers a parent re-fetch. */
+  const handleDeleteEvent = useCallback(
+    async (eventId: string): Promise<string> => {
+      const err = await store.deleteEvent(eventId, profile.id);
+      if (!err) onMutate();
+      return err ?? "";
+    },
+    [store, profile.id, onMutate]
+  );
 
   return (
     <div>
@@ -70,7 +93,7 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
       {/* Notes tab — all free-form facts */}
       {activeTab === "notes" && (
         <div className="space-y-5">
-          <AddFactForm profileId={profile.id} />
+          <AddFactForm profileId={profile.id} onSuccess={onMutate} />
           {facts.length > 0 ? (
             <ul className="space-y-2">
               {facts.map((fact) => (
@@ -85,7 +108,7 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
                     )}
                   </div>
                   <DeleteButton
-                    onDelete={deleteFact.bind(null, fact.id, profile.id)}
+                    onDelete={() => handleDeleteFact(fact.id)}
                     ariaLabel="Delete note"
                   />
                 </li>
@@ -124,7 +147,7 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)]">
               Events
             </h3>
-            <AddEventForm profileId={profile.id} />
+            <AddEventForm profileId={profile.id} onSuccess={onMutate} />
             {events.length > 0 && (
               <ul className="space-y-2">
                 {events.map((event) => (
@@ -142,7 +165,7 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
                       )}
                     </div>
                     <DeleteButton
-                      onDelete={deleteEvent.bind(null, event.id, profile.id)}
+                      onDelete={() => handleDeleteEvent(event.id)}
                       ariaLabel="Delete event"
                     />
                   </li>
