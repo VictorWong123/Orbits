@@ -5,6 +5,7 @@ import { createProfile } from "@backend/actions";
 import { useFormAction } from "@frontend/hooks/useFormAction";
 import SubmitButton from "@frontend/components/ui/SubmitButton";
 import FormError from "@frontend/components/ui/FormError";
+import PillInput from "@frontend/components/ui/PillInput";
 
 interface Props {
   /** Names of all existing profiles, used for duplicate-name detection. */
@@ -46,12 +47,13 @@ export default function AddProfileForm({ existingNames }: Props) {
         Add a person
       </h2>
 
-      <input
+      <PillInput
+        variant="white"
         name="full_name"
         type="text"
         placeholder="Full name"
         required
-        className="w-full bg-white rounded-full px-4 py-2.5 text-sm text-[#1A3021] placeholder:text-[var(--color-accent)] border border-gray-200 outline-none focus:ring-2 focus:ring-gray-200"
+        className="w-full px-4 py-2.5"
       />
 
       <FormError error={error} />

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { X, Check } from "lucide-react";
+import { X } from "lucide-react";
 import { PALETTES, type PaletteId } from "@frontend/lib/theme";
 import { useTheme } from "@frontend/components/ui/ThemeProvider";
 import { updateSettings } from "@backend/actions";
+import PaletteSwatch from "@frontend/components/ui/PaletteSwatch";
+import FormError from "@frontend/components/ui/FormError";
 
 interface Props {
   isOpen: boolean;
@@ -79,7 +81,7 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        <FormError error={error} />
 
         {/* Action row */}
         <div className="flex gap-2 pt-1">
@@ -101,39 +103,5 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
         </div>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Internal sub-components
-// ---------------------------------------------------------------------------
-
-interface PaletteSwatchProps {
-  palette: { id: string; name: string; primary: string };
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-/** A single color swatch button with a checkmark when selected. */
-function PaletteSwatch({ palette, isSelected, onSelect }: PaletteSwatchProps) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-label={`Select ${palette.name} theme`}
-      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-        isSelected
-          ? "border-[#1A3021] bg-gray-50"
-          : "border-transparent hover:bg-gray-50"
-      }`}
-    >
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center"
-        style={{ backgroundColor: palette.primary }}
-      >
-        {isSelected && <Check size={16} className="text-white" strokeWidth={3} />}
-      </div>
-      <span className="text-xs font-semibold text-[#1A3021]">{palette.name}</span>
-    </button>
   );
 }

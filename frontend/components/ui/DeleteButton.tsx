@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
+import FormError from "@frontend/components/ui/FormError";
 
 interface Props {
   /**
@@ -43,9 +44,7 @@ export default function DeleteButton({ onDelete, ariaLabel }: Props) {
       >
         <Trash2 size={16} />
       </button>
-      {error && (
-        <p className="text-red-500 text-xs max-w-[120px] text-right">{error}</p>
-      )}
+      <FormError error={error} size="xs" className="max-w-[120px] text-right" />
     </div>
   );
 }

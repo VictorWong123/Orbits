@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Search, ChevronRight } from "lucide-react";
+import { getInitials, relativeTime } from "@frontend/lib/formatters";
+import PillInput from "@frontend/components/ui/PillInput";
 
 interface ProfileFact {
   category: string;
@@ -18,35 +20,6 @@ interface ProfileWithFacts {
 
 interface Props {
   profiles: ProfileWithFacts[];
-}
-
-/**
- * Derives 2-letter initials from a full name.
- * Uses first letter of first and last word; single-word names use first two chars.
- */
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-/**
- * Returns a human-readable relative time string for a given ISO date.
- * E.g., "6 minutes ago", "3 days ago".
- */
-function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} day${days !== 1 ? "s" : ""} ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 4) return `${weeks} week${weeks !== 1 ? "s" : ""} ago`;
-  const months = Math.floor(days / 30);
-  return `${months} month${months !== 1 ? "s" : ""} ago`;
 }
 
 /**
@@ -73,12 +46,13 @@ export default function ProfileList({ profiles }: Props) {
           size={16}
           className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-accent)] pointer-events-none"
         />
-        <input
+        <PillInput
+          variant="white"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name, relationship, or tag..."
-          className="w-full pl-10 pr-4 py-3 bg-white rounded-full text-sm text-[var(--color-primary)] placeholder:text-[var(--color-accent)] border border-gray-200 outline-none focus:ring-2 focus:ring-gray-200"
+          className="w-full pl-10 pr-4 py-3"
         />
       </div>
 

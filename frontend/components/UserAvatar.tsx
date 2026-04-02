@@ -1,26 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Settings, LogOut } from "lucide-react";
 import { signOut } from "@backend/actions";
+import { getEmailInitials } from "@frontend/lib/formatters";
+import { useOutsideClick } from "@frontend/hooks/useOutsideClick";
+import DropdownItem from "@frontend/components/ui/DropdownItem";
 import SettingsModal from "@frontend/components/ui/SettingsModal";
 
 interface Props {
   /** Authenticated user's email address. Used to derive display initials. */
   email: string;
-}
-
-/**
- * Derives up to two uppercase initials from an email address.
- * Splits the local part (before @) on common separators (`.`, `_`, `-`, `+`).
- * Single-segment locals use the first two characters.
- * Examples: "victor.wong@x.com" → "VW", "alice@x.com" → "AL"
- */
-function emailInitials(email: string): string {
-  const [local] = email.split("@");
-  const parts = local.split(/[._+\-]/);
-  if (parts.length === 1) return local.slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 /**
@@ -33,16 +23,8 @@ export default function UserAvatar({ email }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  /** Closes the dropdown when a click lands outside the component. */
-  useEffect(() => {
-    function handleOutsideClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    if (dropdownOpen) document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [dropdownOpen]);
+  const closeDropdown = useCallback(() => setDropdownOpen(false), []);
+  useOutsideClick(dropdownRef, closeDropdown, dropdownOpen);
 
   /** Opens settings and closes the dropdown. */
   function openSettings() {
@@ -62,7 +44,7 @@ export default function UserAvatar({ email }: Props) {
           aria-haspopup="true"
           className="w-9 h-9 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-sm font-bold text-white hover:opacity-90 transition-opacity select-none"
         >
-          {emailInitials(email)}
+          {getEmailInitials(email)}
         </button>
 
         {/* Dropdown */}
@@ -90,29 +72,5 @@ export default function UserAvatar({ email }: Props) {
 
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Internal sub-components
-// ---------------------------------------------------------------------------
-
-interface DropdownItemProps {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}
-
-/** A single row inside the account dropdown menu. */
-function DropdownItem({ icon, label, onClick }: DropdownItemProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A3021] hover:bg-gray-50 transition-colors"
-    >
-      <span className="text-gray-400">{icon}</span>
-      {label}
-    </button>
   );
 }

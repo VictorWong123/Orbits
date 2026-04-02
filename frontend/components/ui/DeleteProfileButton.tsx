@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import FormError from "@frontend/components/ui/FormError";
 
 interface Props {
   /**
@@ -47,7 +48,7 @@ export default function DeleteProfileButton({ profileName, action }: Props) {
       >
         {isPending ? "Deleting…" : "Delete person"}
       </button>
-      {error && <p className="text-red-500 text-xs">{error}</p>}
+      <FormError error={error} size="xs" />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { createEvent } from "@backend/actions";
 import { useFormAction } from "@frontend/hooks/useFormAction";
 import SubmitButton from "@frontend/components/ui/SubmitButton";
 import FormError from "@frontend/components/ui/FormError";
+import DateTimePicker from "@frontend/components/ui/DateTimePicker";
+import PillInput from "@frontend/components/ui/PillInput";
 
 interface Props {
   profileId: string;
@@ -17,26 +19,21 @@ export default function AddEventForm({ profileId }: Props) {
     <form ref={formRef} action={formAction} className="flex flex-col gap-2">
       <input type="hidden" name="profile_id" value={profileId} />
       <div className="flex gap-2 flex-wrap">
-        <input
+        <PillInput
           name="title"
           type="text"
           placeholder="Event title"
           required
-          className="flex-1 min-w-0 bg-[var(--color-primary-light)] rounded-full px-4 py-2.5 text-sm text-[#1A3021] placeholder:text-[var(--color-accent)] border-0 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="flex-1 min-w-0 px-4 py-2.5"
         />
-        <input
-          name="event_date"
-          type="datetime-local"
-          required
-          className="bg-[var(--color-primary-light)] rounded-full px-4 py-2.5 text-sm text-[var(--color-primary)] border-0 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-        />
+        <DateTimePicker name="event_date" placeholder="Date & time" />
       </div>
       <div className="flex gap-2">
-        <input
+        <PillInput
           name="notes"
           type="text"
           placeholder="Notes (optional)"
-          className="flex-1 bg-[var(--color-primary-light)] rounded-full px-4 py-2.5 text-sm text-[#1A3021] placeholder:text-[var(--color-accent)] border-0 outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="flex-1 px-4 py-2.5"
         />
         <SubmitButton
           isPending={isPending}

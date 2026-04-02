@@ -4,7 +4,9 @@ import { useState } from "react";
 import AddFactForm from "@frontend/components/AddFactForm";
 import AddEventForm from "@frontend/components/AddEventForm";
 import DeleteButton from "@frontend/components/ui/DeleteButton";
+import InfoField from "@frontend/components/ui/InfoField";
 import { deleteFact, deleteEvent } from "@backend/actions";
+import { formatCategory, formatBirthdayDate, formatEventDate } from "@frontend/lib/formatters";
 import type { Fact, Event } from "@backend/types/database";
 
 interface Profile {
@@ -104,11 +106,7 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
               {profile.birthday && (
                 <InfoField
                   label="Birthday"
-                  value={new Date(profile.birthday + "T00:00:00").toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  value={formatBirthdayDate(profile.birthday)}
                 />
               )}
               {infoFacts.map((fact) => (
@@ -137,11 +135,7 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-[#1A3021]">{event.title}</p>
                       <p className="text-xs italic text-[var(--color-accent)] mt-0.5">
-                        {new Date(event.event_date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {formatEventDate(event.event_date)}
                       </p>
                       {event.notes && (
                         <p className="text-sm text-[var(--color-primary)] mt-1">{event.notes}</p>
@@ -172,35 +166,6 @@ export default function ProfileTabs({ profile, facts, events }: Props) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Internal sub-components
-// ---------------------------------------------------------------------------
-
-interface InfoFieldProps {
-  label: string;
-  value: string;
-}
-
-/**
- * Converts a snake_case or lowercase category string into a Title Case label.
- * E.g., "lives_in" → "Lives In", "work_school" → "Work School".
- */
-function formatCategory(category: string): string {
-  return category
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-/** Stacked label-on-top, value-below row for the Info tab. */
-function InfoField({ label, value }: InfoFieldProps) {
-  return (
-    <div className="py-4">
-      <p className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">{label}</p>
-      <p className="text-base font-semibold text-[#1A3021] mt-0.5">{value}</p>
     </div>
   );
 }
