@@ -4,6 +4,8 @@ import type {
   CreateProfileInput,
   CreateFactInput,
   CreateEventInput,
+  Friend,
+  Reminder,
 } from "./types";
 import type { Profile, Fact, Event } from "@backend/types/database";
 
@@ -169,7 +171,7 @@ export class LocalDataStore implements DataStore {
   }
 
   /** Deletes a fact by ID. */
-  async deleteFact(factId: string): Promise<string | null> {
+  async deleteFact(factId: string, _profileId: string): Promise<string | null> {
     writeJson(
       KEYS.facts,
       readJson<Fact[]>(KEYS.facts, []).filter((f) => f.id !== factId)
@@ -204,11 +206,27 @@ export class LocalDataStore implements DataStore {
   }
 
   /** Deletes an event by ID. */
-  async deleteEvent(eventId: string): Promise<string | null> {
+  async deleteEvent(eventId: string, _profileId: string): Promise<string | null> {
     writeJson(
       KEYS.events,
       readJson<Event[]>(KEYS.events, []).filter((e) => e.id !== eventId)
     );
+    return null;
+  }
+
+  /**
+   * Updates the birthday field on a locally-stored profile.
+   * Pass null to clear the birthday.
+   */
+  async updateBirthday(
+    profileId: string,
+    birthday: string | null
+  ): Promise<string | null> {
+    const profiles = readJson<Profile[]>(KEYS.profiles, []);
+    const idx = profiles.findIndex((p) => p.id === profileId);
+    if (idx === -1) return "Profile not found";
+    profiles[idx] = { ...profiles[idx], birthday };
+    writeJson(KEYS.profiles, profiles);
     return null;
   }
 
@@ -221,5 +239,51 @@ export class LocalDataStore implements DataStore {
     localStorage.setItem(KEYS.palette, paletteId);
     document.cookie = `orbits_palette=${paletteId};path=/;max-age=31536000;SameSite=Lax`;
     return null;
+  }
+
+  // ── Friends stubs ────────────────────────────────────────────────────────
+  // Friends require cross-user communication and are only available to
+  // authenticated users. These stubs satisfy the DataStore interface and
+  // surface a clear error message in the UI.
+
+  /** Returns an empty array — friends are not available without an account. */
+  async getFriends(): Promise<Friend[]> {
+    return [];
+  }
+
+  /** Friends features require sign-in. */
+  async sendFriendRequest(_orbitId: string): Promise<string | null> {
+    return "Sign in to use friends features";
+  }
+
+  /** Friends features require sign-in. */
+  async acceptFriendRequest(_friendshipId: string): Promise<string | null> {
+    return "Sign in to use friends features";
+  }
+
+  /** Friends features require sign-in. */
+  async removeFriend(_friendshipId: string): Promise<string | null> {
+    return "Sign in to use friends features";
+  }
+
+  // ── Reminders stubs ──────────────────────────────────────────────────────
+
+  /** Returns an empty array — reminders are not available without an account. */
+  async getReminders(): Promise<Reminder[]> {
+    return [];
+  }
+
+  /** Reminders require sign-in. */
+  async sendReminder(
+    _friendId: string,
+    _eventId: string,
+    _message: string
+  ): Promise<string | null> {
+    return "Sign in to use friends features";
+  }
+
+  /** Reminders require sign-in. */
+  async markReminderRead(_reminderId: string): Promise<string | null> {
+    return "Sign in to use friends features";
   }
 }

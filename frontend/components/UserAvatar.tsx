@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Settings, LogOut, UserPlus } from "lucide-react";
+import { Settings, LogOut, UserPlus, User, Copy, Check } from "lucide-react";
 import { signOut } from "@backend/actions";
 import { getEmailInitials } from "@frontend/lib/formatters";
 import { useOutsideClick } from "@frontend/hooks/useOutsideClick";
@@ -20,9 +20,10 @@ import SettingsModal from "@frontend/components/ui/SettingsModal";
  * The dropdown closes automatically when clicking outside of it.
  */
 export default function UserAvatar() {
-  const { userEmail, isAuthenticated } = useDataStore();
+  const { userEmail, isAuthenticated, userId } = useDataStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const closeDropdown = useCallback(() => setDropdownOpen(false), []);
@@ -32,6 +33,14 @@ export default function UserAvatar() {
   function openSettings() {
     setDropdownOpen(false);
     setSettingsOpen(true);
+  }
+
+  /** Copies the user's Orbit ID to the clipboard and shows brief confirmation. */
+  async function handleCopyOrbitId() {
+    if (!userId) return;
+    await navigator.clipboard.writeText(userId);
+    setIdCopied(true);
+    setTimeout(() => setIdCopied(false), 2000);
   }
 
   /** Derives display initials from email, or falls back to a question mark. */
@@ -65,15 +74,34 @@ export default function UserAvatar() {
             <DropdownItem icon={<Settings size={15} />} label="Settings" onClick={openSettings} />
 
             {isAuthenticated ? (
-              <form action={signOut}>
-                <button
-                  type="submit"
+              <>
+                <Link
+                  href="/account"
+                  onClick={() => setDropdownOpen(false)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A3021] hover:bg-gray-50 transition-colors"
                 >
-                  <LogOut size={15} className="text-gray-400" />
-                  Sign out
-                </button>
-              </form>
+                  <User size={15} className="text-gray-400" />
+                  My Account
+                </Link>
+
+                {userId && (
+                  <DropdownItem
+                    icon={idCopied ? <Check size={15} /> : <Copy size={15} />}
+                    label={idCopied ? "Copied!" : "Copy Orbit ID"}
+                    onClick={handleCopyOrbitId}
+                  />
+                )}
+
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A3021] hover:bg-gray-50 transition-colors"
+                  >
+                    <LogOut size={15} className="text-gray-400" />
+                    Sign out
+                  </button>
+                </form>
+              </>
             ) : (
               <Link
                 href="/account"

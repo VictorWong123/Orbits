@@ -87,4 +87,100 @@ export interface DataStore {
    * cookie so the server-side layout can apply the correct theme without FOUC.
    */
   updatePaletteId(paletteId: string): Promise<string | null>;
+
+  /**
+   * Updates the birthday field on a profile.
+   * Pass null to clear the birthday.
+   * Returns null on success, or an error string on failure.
+   */
+  updateBirthday(profileId: string, birthday: string | null): Promise<string | null>;
+
+  // ── Friends ──────────────────────────────────────────────────────────────
+
+  /**
+   * Returns all friendships for the current user (pending and accepted).
+   * LocalDataStore always returns an empty array.
+   */
+  getFriends(): Promise<Friend[]>;
+
+  /**
+   * Sends a friend request to the user with the given Orbit ID (UUID).
+   * Returns null on success, or an error string on failure.
+   */
+  sendFriendRequest(orbitId: string): Promise<string | null>;
+
+  /**
+   * Accepts an incoming friend request by its friendship row ID.
+   * Returns null on success, or an error string on failure.
+   */
+  acceptFriendRequest(friendshipId: string): Promise<string | null>;
+
+  /**
+   * Removes a friendship (cancels a pending request or unfriends).
+   * Returns null on success, or an error string on failure.
+   */
+  removeFriend(friendshipId: string): Promise<string | null>;
+
+  // ── Reminders ────────────────────────────────────────────────────────────
+
+  /**
+   * Returns all reminders received by the current user, unread first.
+   * LocalDataStore always returns an empty array.
+   */
+  getReminders(): Promise<Reminder[]>;
+
+  /**
+   * Sends an event-based reminder to a friend.
+   * Returns null on success, or an error string on failure.
+   */
+  sendReminder(
+    friendId: string,
+    eventId: string,
+    message: string
+  ): Promise<string | null>;
+
+  /**
+   * Marks a received reminder as read.
+   * Returns null on success, or an error string on failure.
+   */
+  markReminderRead(reminderId: string): Promise<string | null>;
+}
+
+// ── Friends & Reminders types ────────────────────────────────────────────────
+
+/**
+ * A friendship row from the perspective of the current user.
+ * `isRequester` is true when the current user initiated the request.
+ */
+export interface Friend {
+  /** The friendship row UUID. */
+  id: string;
+  /** The other user's Supabase UUID. */
+  friendId: string;
+  /** The other user's email address (fetched via secure RPC). */
+  friendEmail: string;
+  /** 'pending' until the receiver accepts; 'accepted' thereafter. */
+  status: "pending" | "accepted";
+  /** True when auth.uid() === requester_id on the friendship row. */
+  isRequester: boolean;
+}
+
+/**
+ * A reminder row received by the current user.
+ */
+export interface Reminder {
+  /** The reminder row UUID. */
+  id: string;
+  /** The UUID of the user who sent the reminder. */
+  senderId: string;
+  /** The sender's email address (fetched via secure RPC). */
+  senderEmail: string;
+  /** The UUID of the linked event. */
+  eventId: string;
+  /** The custom message written by the sender. */
+  message: string;
+  /** False until the receiver dismisses the reminder. */
+  isRead: boolean;
+  /** ISO-8601 creation timestamp. */
+  createdAt: string;
 }

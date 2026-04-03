@@ -29,6 +29,11 @@ interface StoreContextValue {
    * of wrong content.
    */
   userEmail: string | null | undefined;
+  /**
+   * The authenticated user's Supabase UUID (their Orbit ID), null when not
+   * signed in, or undefined while the initial session check is in-flight.
+   */
+  userId: string | null | undefined;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -62,6 +67,7 @@ interface Props {
  */
 export function StoreProvider({ children }: Props) {
   const [userEmail, setUserEmail] = useState<string | null | undefined>(undefined);
+  const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [migrationPending, setMigrationPending] = useState(false);
   const [localProfileCount, setLocalProfileCount] = useState(0);
 
@@ -76,6 +82,7 @@ export function StoreProvider({ children }: Props) {
     // initial state (avoids a flicker from the undefined loading state).
     supabase.auth.getSession().then(({ data }) => {
       setUserEmail(data.session?.user?.email ?? null);
+      setUserId(data.session?.user?.id ?? null);
     });
 
     // Subscribe to all future auth state changes (sign-in, sign-out, refresh).
@@ -83,6 +90,7 @@ export function StoreProvider({ children }: Props) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null);
+      setUserId(session?.user?.id ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -110,7 +118,7 @@ export function StoreProvider({ children }: Props) {
   );
 
   return (
-    <StoreContext.Provider value={{ store, isAuthenticated, userEmail }}>
+    <StoreContext.Provider value={{ store, isAuthenticated, userEmail, userId }}>
       {children}
       {migrationPending && (
         <MigrationModal

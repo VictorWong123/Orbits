@@ -5,6 +5,7 @@ import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import AddProfileForm from "@frontend/components/AddProfileForm";
 import ProfileList from "@frontend/components/ProfileList";
 import UserAvatar from "@frontend/components/UserAvatar";
+import ReminderDropdown from "@frontend/components/ReminderDropdown";
 import type { ProfileSummary } from "@frontend/lib/store/types";
 
 /**
@@ -39,7 +40,10 @@ export default function DashboardClient() {
     <main className="max-w-md mx-auto bg-[#FDFBF7] min-h-screen">
       <header className="flex items-center justify-between px-6 py-6">
         <h1 className="text-2xl font-bold text-[#1A3021]">Orbit</h1>
-        <UserAvatar />
+        <div className="flex items-center gap-2">
+          <ReminderDropdown />
+          <UserAvatar />
+        </div>
       </header>
 
       <div className="px-6 pb-8 space-y-6">
@@ -52,7 +56,7 @@ export default function DashboardClient() {
             Loading…
           </p>
         ) : (
-          <ProfileList profiles={profiles} />
+          <ProfileList profiles={profiles} onDelete={loadProfiles} />
         )}
       </div>
     </main>
