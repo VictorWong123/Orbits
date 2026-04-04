@@ -1,6 +1,6 @@
 # Orbit — Personal Relationship Manager
 
-Orbit is a private "digital brain" for keeping track of the people in your life. For each person you add, you can record facts (preferences, interests, notes) and upcoming events (plans, appointments, reminders).
+Orbit is a private "digital brain" for keeping track of the people in your life. For each person you add, you can record facts (preferences, interests, notes) and upcoming events (plans, appointments, reminders). Works offline with localStorage and syncs to the cloud when you sign in.
 
 ## Features
 
@@ -8,6 +8,12 @@ Orbit is a private "digital brain" for keeping track of the people in your life.
 - **Profile pages** — per-person view with facts and upcoming events
 - **Facts** — categorised free-form notes (e.g. food, work, hobby)
 - **Events** — date/time entries with optional notes
+- **Friends** — add other Orbit users as friends by email or short code; view their profile info
+- **Reminders** — send event-based reminders to accepted friends
+- **Shareable cards** — create personal profile cards with contact info, hobbies, and custom fields; share via link or QR code; recipients can import the card into their own dashboard
+- **Theme customisation** — six color palettes (sage, ocean, lavender, rose, amber, slate) persisted to DB, cookie, or localStorage
+- **Local-first mode** — works without authentication; all data stored in localStorage
+- **Data migration** — migrate local data to Supabase when you create an account
 - **Auth** — email/password sign-up and sign-in via Supabase Auth
 - **Privacy** — Row Level Security ensures every user sees only their own data
 
@@ -17,34 +23,108 @@ Orbit is a private "digital brain" for keeping track of the people in your life.
 |---|---|
 | Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
+| UI | React 19 |
 | Database & Auth | Supabase (PostgreSQL + Auth) |
 | Validation | Zod |
 | Styling | Tailwind CSS |
 | Icons | Lucide React |
+| QR Codes | react-qr-code |
+| Calendar | react-day-picker |
+| E2E Testing | Playwright |
 
 ## Project Structure
 
 ```
-app/                    # Next.js App Router pages & server actions
-  actions.ts            # Re-export barrel for all server actions
-  dashboard/            # Lists all profiles (Server Component)
-  login/                # Email/password auth (sign-in & sign-up)
-  profile/[id]/         # Profile detail: facts + events
+app/
+  actions.ts              # Re-exports all server actions from backend/actions/
+  layout.tsx              # Root layout: theme from DB/cookie, StoreProvider + ThemeProvider
+  page.tsx                # Root route — redirects to /dashboard
+  account/                # Auth & account management page
+  dashboard/              # Profile list (Server Component shell)
+  login/                  # Legacy route — 301 redirects to /account
+  profile/[id]/           # Profile detail: facts + events
+  share/[id]/             # Public shareable card view + import
 
 backend/
-  actions/index.ts      # All server actions (create/delete)
-  lib/supabase/         # Supabase server client
-  types/database.ts     # TypeScript types for DB rows
+  actions/
+    index.ts              # Barrel export for all server actions
+    auth.ts               # signIn, signUp, signOut
+    profiles.ts           # createProfile, deleteProfile
+    facts.ts              # createFact, deleteFact
+    events.ts             # createEvent, deleteEvent
+    settings.ts           # getSettings, updateSettings
+    migration.ts          # migrateLocalData (local→Supabase sync)
+    friends.ts            # sendFriendRequest, acceptFriendRequest, removeFriend, etc.
+    reminders.ts          # sendReminder, getReminders, markReminderRead, etc.
+    cards.ts              # createCard, updateCard, deleteCard, importSharedCard
+  lib/
+    supabase/
+      config.ts           # SUPABASE_URL & SUPABASE_ANON_KEY constants
+      server.ts           # createClient() for Server Components/Actions
+    auth-helpers.ts       # getAuthenticatedSupabase() — shared auth check
+    validators.ts         # parseOrError() — Zod safeParse wrapper
+    cache.ts              # invalidateProfileCache(), invalidateDashboardCache()
+  types/
+    database.ts           # Profile, Fact, Event, UserSettings, ShareableCard interfaces
 
 frontend/
-  components/           # Shared UI components (forms, buttons)
-  hooks/useFormAction.ts
-  lib/supabase/         # Supabase browser client
+  components/
+    DashboardClient.tsx   # Profile list with add-profile form
+    ProfileClient.tsx     # Profile detail view — header, delete, tabs
+    AccountForm.tsx       # Sign-in / Sign-up sliding pill form
+    AccountManagement.tsx # Authenticated user email, settings, sign-out
+    AddProfileForm.tsx    # Create new profile; detects duplicates
+    AddFactForm.tsx       # Create a fact/note with optional category
+    AddEventForm.tsx      # Create an event with DateTimePicker
+    AddFriendForm.tsx     # Send friend request by email or short code
+    AddPersonPanel.tsx    # Unified panel for adding profiles/importing cards
+    AddByCardForm.tsx     # Add a person by pasting a share link
+    FriendsManager.tsx    # Friend list, pending requests, accept/reject
+    ImportCardForm.tsx    # Import a shared card into your dashboard
+    ProfileTabs.tsx       # Notes / Info tabs; optimistic delete for facts/events
+    ProfileList.tsx       # Searchable, card-based list with initials avatars
+    ReminderDropdown.tsx  # Reminder notification dropdown
+    SendReminderModal.tsx # Send a reminder to a friend
+    ShareableCardsManager.tsx  # Create, edit, share profile cards + QR codes
+    UserAvatar.tsx        # Avatar dropdown (settings, sign-out, create account)
+    UserProfileForm.tsx   # Edit personal profile (display name, bio, etc.)
+    ui/
+      PillInput.tsx       # Reusable pill-shaped text input
+      DateTimePicker.tsx  # Calendar + time input (react-day-picker)
+      FormError.tsx       # Error message display
+      ThemeProvider.tsx   # Context: manages palette ID, syncs CSS vars to <html>
+      SettingsModal.tsx   # Palette color-picker modal
+      MigrationModal.tsx  # Local→Supabase migration offer after sign-in
+      ConfirmDialog.tsx   # Reusable confirmation dialog
+      DeleteButton.tsx    # Inline trash icon button with async state
+      DeleteProfileButton.tsx  # Profile delete with confirmation
+      SubmitButton.tsx    # Button with pending state
+      InfoField.tsx       # Label-value pair display
+      PaletteSwatch.tsx   # Color palette preview selector
+      DropdownItem.tsx    # Dropdown menu item with icon + label
+  lib/
+    store/
+      types.ts            # DataStore interface + input types
+      LocalDataStore.ts   # localStorage-backed store (unauthenticated)
+      SupabaseDataStore.ts # Supabase browser client store (authenticated)
+      StoreProvider.tsx   # Context: selects store by auth state
+    supabase/
+      client.ts           # createClient() for Client Components (browser SDK)
+    theme.ts              # PaletteId type, ColorPalette, PALETTES (6 palettes)
+    formatters.ts         # getInitials, relativeTime, formatCategory, etc.
+  styles/
+    globals.css           # Global Tailwind base styles
+  hooks/
+    useFormAction.ts      # Wraps useActionState; auto-resets on success
+    useStoreAction.ts     # Wraps useTransition for DataStore mutations
+    useOutsideClick.ts    # Closes dropdowns/modals on outside click
 
-middleware.ts           # Route protection — redirects to /login if unauthenticated
+middleware.ts             # Session refresh + legacy /login → /account redirect
+tailwind.config.ts        # CSS custom property color tokens
+tests/                    # Playwright E2E specs
 ```
 
-Path aliases: `@backend/*` → `./backend/*`, `@frontend/*` → `./frontend/*`
+Path aliases: `@/*` → root, `@backend/*` → `./backend/*`, `@frontend/*` → `./frontend/*`
 
 ## Prerequisites
 
@@ -56,17 +136,18 @@ Path aliases: `@backend/*` → `./backend/*`, `@frontend/*` → `./frontend/*`
 ### 1. Clone and install dependencies
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/VictorWong123/Orbits.git
 cd orbits
 npm install
 ```
 
 ### 2. Create the database schema
 
-In the Supabase dashboard, open the **SQL Editor** and run:
+In the Supabase dashboard, open the **SQL Editor** and run each migration in order.
+
+**Base schema** — profiles, facts, events:
 
 ```sql
--- Profiles table
 create table profiles (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users not null,
@@ -76,7 +157,6 @@ create table profiles (
   created_at timestamp with time zone default timezone('utc', now()) not null
 );
 
--- Facts table
 create table facts (
   id uuid default gen_random_uuid() primary key,
   profile_id uuid references profiles(id) on delete cascade not null,
@@ -86,7 +166,6 @@ create table facts (
   created_at timestamp with time zone default timezone('utc', now()) not null
 );
 
--- Events table
 create table events (
   id uuid default gen_random_uuid() primary key,
   profile_id uuid references profiles(id) on delete cascade not null,
@@ -97,12 +176,10 @@ create table events (
   created_at timestamp with time zone default timezone('utc', now()) not null
 );
 
--- Enable Row Level Security
 alter table profiles enable row level security;
 alter table facts enable row level security;
 alter table events enable row level security;
 
--- Policies: users can only access their own rows
 create policy "Users can manage their own profiles"
   on profiles for all using (auth.uid() = user_id);
 
@@ -113,36 +190,17 @@ create policy "Users can manage their own events"
   on events for all using (auth.uid() = user_id);
 ```
 
-Then run the additional migrations for settings, friends, and reminders (**required** — the app will error without these):
+Then run the following migrations in order (**all are required** — the app will error without them):
 
-**Migration 2 — User Settings** (`supabase/migrations/001_user_settings.sql`):
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `supabase/migrations/001_user_settings.sql` | User theme preferences |
+| 2 | `supabase/migrations/002_user_profiles.sql` | User bio/info, short-code lookup |
+| 3 | `supabase/migrations/003_shareable_cards.sql` | Shareable profile cards + imported_data column |
+| 4 | `supabase/migrations/004_custom_fields.sql` | Custom fields on shareable cards |
+| 5 | `supabase/migrations/friends_reminders.sql` | Friendships, reminders, email/UUID lookup RPCs |
 
-```sql
-create table if not exists user_settings (
-  user_id   uuid primary key references auth.users(id) on delete cascade,
-  palette_id text not null default 'sage',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-alter table user_settings enable row level security;
-
-create policy "Users manage their own settings"
-  on user_settings for all
-  using  (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-create or replace function update_updated_at_column()
-returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end;
-$$;
-
-create trigger user_settings_updated_at
-  before update on user_settings
-  for each row execute function update_updated_at_column();
-```
-
-**Migration 3 — Friends & Reminders** (`supabase/migrations/friends_reminders.sql`) — paste the full contents of that file into the SQL Editor and run it.
+Paste the full contents of each file into the SQL Editor and run them sequentially.
 
 ### 3. Configure environment variables
 
@@ -161,7 +219,7 @@ Both values are available in your Supabase project under **Project Settings → 
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). You will be redirected to `/login` — create an account and start adding people.
+Open [http://localhost:3000](http://localhost:3000). You will be redirected to `/account` — create an account or start using Orbit in local-only mode without signing in.
 
 ## Available Scripts
 
@@ -172,9 +230,18 @@ npm run start    # Run production build locally
 npm run lint     # ESLint
 ```
 
+## Testing
+
+E2E tests use [Playwright](https://playwright.dev/) and live in the `tests/` directory.
+
+```bash
+npx playwright test              # Run all tests
+npx playwright test --ui         # Interactive UI mode
+```
+
 ## Security Notes
 
 - **RLS is always on.** Never disable Row Level Security on any table.
-- All writes go through server actions in `backend/actions/index.ts`, which validate input with Zod and verify user ownership before touching the database.
-- Middleware (`middleware.ts`) redirects unauthenticated requests to `/login` for all non-static routes.
-# Orbits
+- All writes go through server actions in `backend/actions/`, which validate input with Zod and verify user ownership before touching the database.
+- The middleware refreshes the Supabase session on every request. It does **not** gate routes by auth — unauthenticated users can use the app in local-only mode. The only redirect is the legacy `/login` → `/account` (301).
+- Shareable cards use UUID-as-secret for public read access — knowing the card's UUID is required to view it.
