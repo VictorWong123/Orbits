@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Settings, LogOut, UserPlus, User, Copy, Check } from "lucide-react";
-import { signOut } from "@backend/actions";
+import { createClient } from "@frontend/lib/supabase/client";
 import { getEmailInitials } from "@frontend/lib/formatters";
 import { useOutsideClick } from "@frontend/hooks/useOutsideClick";
 import { useDataStore } from "@frontend/lib/store/StoreProvider";
@@ -35,12 +35,29 @@ export default function UserAvatar() {
     setSettingsOpen(true);
   }
 
-  /** Copies the user's Orbit ID to the clipboard and shows brief confirmation. */
+  /** Returns the 8-character short code derived from the user's full UUID. */
+  function shortCode(id: string): string {
+    return id.slice(0, 8).toUpperCase();
+  }
+
+  /** Copies the 8-character Orbit code to the clipboard and shows brief confirmation. */
   async function handleCopyOrbitId() {
     if (!userId) return;
-    await navigator.clipboard.writeText(userId);
+    await navigator.clipboard.writeText(shortCode(userId));
     setIdCopied(true);
     setTimeout(() => setIdCopied(false), 2000);
+  }
+
+  /**
+   * Signs out via the Supabase browser client, then performs a hard redirect
+   * to /account. A hard redirect (window.location.href) is used so the browser
+   * sends a fresh request — ensuring the middleware sees the cleared session
+   * cookie and does not bounce back to /dashboard.
+   */
+  async function handleSignOut() {
+    setDropdownOpen(false);
+    await createClient().auth.signOut();
+    window.location.href = "/account";
   }
 
   /** Derives display initials from email, or falls back to a question mark. */
@@ -81,26 +98,18 @@ export default function UserAvatar() {
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A3021] hover:bg-gray-50 transition-colors"
                 >
                   <User size={15} className="text-gray-400" />
-                  My Account
+                  My Profiles
                 </Link>
 
-                {userId && (
-                  <DropdownItem
-                    icon={idCopied ? <Check size={15} /> : <Copy size={15} />}
-                    label={idCopied ? "Copied!" : "Copy Orbit ID"}
-                    onClick={handleCopyOrbitId}
-                  />
-                )}
 
-                <form action={signOut}>
-                  <button
-                    type="submit"
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A3021] hover:bg-gray-50 transition-colors"
-                  >
-                    <LogOut size={15} className="text-gray-400" />
-                    Sign out
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A3021] hover:bg-gray-50 transition-colors"
+                >
+                  <LogOut size={15} className="text-gray-400" />
+                  Sign out
+                </button>
               </>
             ) : (
               <Link

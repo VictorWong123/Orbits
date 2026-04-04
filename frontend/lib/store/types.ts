@@ -1,6 +1,38 @@
-import type { Profile, Fact, Event } from "@backend/types/database";
+import type { Profile, Fact, Event, ShareableCard, CustomField } from "@backend/types/database";
 
-export type { Profile, Fact, Event };
+export type { Profile, Fact, Event, ShareableCard, CustomField };
+
+/** Input shape for creating a new shareable card. */
+export interface CreateShareableCardInput {
+  card_name: string;
+  phone?: string;
+  email?: string;
+  hobbies?: string;
+  fun_facts?: string;
+  other_notes?: string;
+  /** User-defined extra fields, e.g. LinkedIn, Portfolio. */
+  custom_fields?: CustomField[];
+}
+
+/**
+ * The authenticated user's own optional bio/personal info.
+ * Shared with friends via the get_user_profile_by_id RPC.
+ */
+export interface UserProfile {
+  display_name: string | null;
+  /** YYYY-MM-DD string, or null when not set. */
+  birthday: string | null;
+  hobbies: string | null;
+  bio: string | null;
+}
+
+/** Input shape for upserting the current user's own profile. */
+export interface UpdateMyProfileInput {
+  display_name?: string;
+  birthday?: string;
+  hobbies?: string;
+  bio?: string;
+}
 
 /**
  * A profile row with its associated fact categories, used on the dashboard
@@ -95,6 +127,49 @@ export interface DataStore {
    */
   updateBirthday(profileId: string, birthday: string | null): Promise<string | null>;
 
+  // ── User Profile ─────────────────────────────────────────────────────────
+
+  /**
+   * Returns the current user's own profile bio, or null if not set.
+   * LocalDataStore always returns null.
+   */
+  getMyProfile(): Promise<UserProfile | null>;
+
+  /**
+   * Upserts the current user's own profile bio.
+   * Returns null on success, or an error string on failure.
+   */
+  updateMyProfile(input: UpdateMyProfileInput): Promise<string | null>;
+
+  // ── Shareable Cards ──────────────────────────────────────────────────────────
+
+  /**
+   * Returns all shareable cards created by the current user, newest first.
+   * LocalDataStore always returns an empty array.
+   */
+  getShareableCards(): Promise<ShareableCard[]>;
+
+  /**
+   * Creates a new shareable card.
+   * Returns null on success, or an error string on failure.
+   * LocalDataStore always returns an error prompting sign-in.
+   */
+  createShareableCard(input: CreateShareableCardInput): Promise<string | null>;
+
+  /**
+   * Updates an existing shareable card's fields.
+   * Returns null on success, or an error string on failure.
+   * LocalDataStore always returns an error prompting sign-in.
+   */
+  updateShareableCard(id: string, input: CreateShareableCardInput): Promise<string | null>;
+
+  /**
+   * Deletes a shareable card by its UUID.
+   * Returns null on success, or an error string on failure.
+   * LocalDataStore always returns an error prompting sign-in.
+   */
+  deleteShareableCard(id: string): Promise<string | null>;
+
   // ── Friends ──────────────────────────────────────────────────────────────
 
   /**
@@ -159,6 +234,8 @@ export interface Friend {
   friendId: string;
   /** The other user's email address (fetched via secure RPC). */
   friendEmail: string;
+  /** The other user's optional profile bio, fetched via secure RPC. Null when not set. */
+  friendProfile: UserProfile | null;
   /** 'pending' until the receiver accepts; 'accepted' thereafter. */
   status: "pending" | "accepted";
   /** True when auth.uid() === requester_id on the friendship row. */

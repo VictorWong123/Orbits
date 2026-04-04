@@ -7,6 +7,10 @@ import type {
   CreateEventInput,
   Friend,
   Reminder,
+  UserProfile,
+  UpdateMyProfileInput,
+  ShareableCard,
+  CreateShareableCardInput,
 } from "./types";
 import type { Profile, Fact, Event } from "@backend/types/database";
 
@@ -251,15 +255,28 @@ export class SupabaseDataStore implements DataStore {
         const isRequester = row.requester_id === userId;
         const friendId = isRequester ? row.receiver_id : row.requester_id;
 
-        const { data: emailData } = await this.supabase.rpc(
-          "get_user_email_by_id",
-          { user_id_input: friendId }
-        );
+        const [emailResult, profileResult] = await Promise.all([
+          this.supabase.rpc("get_user_email_by_id", { user_id_input: friendId }),
+          this.supabase.rpc("get_user_profile_by_id", { user_id_input: friendId }),
+        ]);
+
+        const profileRow = Array.isArray(profileResult.data) && profileResult.data.length > 0
+          ? profileResult.data[0]
+          : null;
+        const friendProfile: UserProfile | null = profileRow
+          ? {
+              display_name: profileRow.display_name ?? null,
+              birthday: profileRow.birthday ?? null,
+              hobbies: profileRow.hobbies ?? null,
+              bio: profileRow.bio ?? null,
+            }
+          : null;
 
         return {
           id: row.id as string,
           friendId: friendId as string,
-          friendEmail: (emailData as string | null) ?? "Unknown",
+          friendEmail: (emailResult.data as string | null) ?? "Unknown",
+          friendProfile,
           status: row.status as "pending" | "accepted",
           isRequester,
         };
@@ -270,29 +287,35 @@ export class SupabaseDataStore implements DataStore {
   }
 
   /**
-   * Sends a friend request to the user with the given Orbit ID (UUID).
-   * No email lookup RPC is needed — the UUID is used directly as the receiver.
+   * Connects the current user with the user identified by the given 8-character
+   * Orbit Code. Resolves the code to a full UUID via the get_user_id_by_short_code
+   * RPC, then inserts a friendship row with status "accepted" immediately —
+   * no pending/accept step required.
    */
-  async sendFriendRequest(orbitId: string): Promise<string | null> {
+  async sendFriendRequest(shortCode: string): Promise<string | null> {
     const userId = await this.getUserId();
     if (!userId) return "Not authenticated";
 
-    const trimmed = orbitId.trim();
-    if (!trimmed) return "Orbit ID is required";
+    const trimmed = shortCode.trim().toLowerCase();
+    if (!trimmed) return "Orbit Code is required";
+    if (!/^[0-9a-f]{8}$/i.test(trimmed)) return "Please enter a valid 8-character Orbit Code";
 
-    const uuidPattern =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidPattern.test(trimmed)) return "Please enter a valid Orbit ID";
-    if (trimmed === userId) return "You cannot send a friend request to yourself.";
+    const { data: receiverId } = await this.supabase.rpc(
+      "get_user_id_by_short_code",
+      { code: trimmed }
+    );
+
+    if (!receiverId) return "No user found with that Orbit Code";
+    if (receiverId === userId) return "That's your own Orbit Code";
 
     const { error } = await this.supabase.from("friendships").insert({
       requester_id: userId,
-      receiver_id: trimmed,
-      status: "pending",
+      receiver_id: receiverId as string,
+      status: "accepted",
     });
 
     if (error) {
-      if (error.code === "23505") return "A friend request already exists with this user.";
+      if (error.code === "23505") return "You're already connected with this person";
       return error.message;
     }
 
@@ -427,6 +450,136 @@ export class SupabaseDataStore implements DataStore {
       .update({ is_read: true })
       .eq("id", reminderId)
       .eq("receiver_id", userId);
+
+    return error?.message ?? null;
+  }
+
+  // ── User Profile ─────────────────────────────────────────────────────────
+
+  /**
+   * Returns the current user's own profile row, or null if none exists yet.
+   */
+  async getMyProfile(): Promise<UserProfile | null> {
+    const userId = await this.getUserId();
+    if (!userId) return null;
+
+    const { data } = await this.supabase
+      .from("user_profiles")
+      .select("display_name, birthday, hobbies, bio")
+      .eq("user_id", userId)
+      .single();
+
+    if (!data) return null;
+
+    return {
+      display_name: data.display_name ?? null,
+      birthday: data.birthday ?? null,
+      hobbies: data.hobbies ?? null,
+      bio: data.bio ?? null,
+    };
+  }
+
+  /**
+   * Upserts the current user's own profile bio.
+   * Empty strings are stored as null (treated as "clear the field").
+   */
+  async updateMyProfile(input: UpdateMyProfileInput): Promise<string | null> {
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { error } = await this.supabase.from("user_profiles").upsert(
+      {
+        user_id: userId,
+        display_name: input.display_name || null,
+        birthday: input.birthday || null,
+        hobbies: input.hobbies || null,
+        bio: input.bio || null,
+      },
+      { onConflict: "user_id" }
+    );
+
+    return error?.message ?? null;
+  }
+
+  // ── Shareable Cards ───────────────────────────────────────────────────────
+
+  /** Returns all shareable cards owned by the current user, newest first. */
+  async getShareableCards(): Promise<ShareableCard[]> {
+    const userId = await this.getUserId();
+    if (!userId) return [];
+
+    const { data, error } = await this.supabase
+      .from("shareable_cards")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) return [];
+    return (data ?? []) as ShareableCard[];
+  }
+
+  /**
+   * Creates a new shareable card for the current user.
+   * Returns null on success, or an error string on failure.
+   */
+  async createShareableCard(input: CreateShareableCardInput): Promise<string | null> {
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { error } = await this.supabase.from("shareable_cards").insert({
+      user_id: userId,
+      card_name: input.card_name,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      hobbies: input.hobbies ?? null,
+      fun_facts: input.fun_facts ?? null,
+      other_notes: input.other_notes ?? null,
+      custom_fields: input.custom_fields ?? [],
+    });
+
+    return error?.message ?? null;
+  }
+
+  /**
+   * Updates the fields of an existing shareable card.
+   * Applies an explicit user_id filter as defense-in-depth on top of RLS.
+   * Returns null on success, or an error string on failure.
+   */
+  async updateShareableCard(id: string, input: CreateShareableCardInput): Promise<string | null> {
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { error } = await this.supabase
+      .from("shareable_cards")
+      .update({
+        card_name: input.card_name,
+        phone: input.phone ?? null,
+        email: input.email ?? null,
+        hobbies: input.hobbies ?? null,
+        fun_facts: input.fun_facts ?? null,
+        other_notes: input.other_notes ?? null,
+        custom_fields: input.custom_fields ?? [],
+      })
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    return error?.message ?? null;
+  }
+
+  /**
+   * Deletes a shareable card by its UUID.
+   * Applies an explicit user_id filter as defense-in-depth on top of RLS.
+   * Returns null on success, or an error string on failure.
+   */
+  async deleteShareableCard(id: string): Promise<string | null> {
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { error } = await this.supabase
+      .from("shareable_cards")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
 
     return error?.message ?? null;
   }

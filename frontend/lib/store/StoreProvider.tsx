@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@frontend/lib/supabase/client";
 import { LocalDataStore } from "./LocalDataStore";
 import { SupabaseDataStore } from "./SupabaseDataStore";
@@ -77,15 +78,19 @@ export function StoreProvider({ children }: Props) {
   // Track previous userEmail to detect the null→string transition (sign-in).
   const prevUserEmail = useRef<string | null | undefined>(undefined);
 
+  const pathname = usePathname();
+
+  // Re-check the session on every navigation so that server-side auth changes
+  // (e.g. signIn via Server Action → redirect) are picked up by the client.
   useEffect(() => {
-    // Resolve the existing session immediately so the UI renders the correct
-    // initial state (avoids a flicker from the undefined loading state).
     supabase.auth.getSession().then(({ data }) => {
       setUserEmail(data.session?.user?.email ?? null);
       setUserId(data.session?.user?.id ?? null);
     });
+  }, [supabase, pathname]);
 
-    // Subscribe to all future auth state changes (sign-in, sign-out, refresh).
+  // Subscribe once to client-side auth state changes (signOut, token refresh).
+  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {

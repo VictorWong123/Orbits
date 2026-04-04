@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { getPalette, DEFAULT_PALETTE_ID, paletteToStyleVars, type PaletteId } from "@frontend/lib/theme";
+import { useDataStore } from "@frontend/lib/store/StoreProvider";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -56,11 +57,21 @@ export default function ThemeProvider({ initialPaletteId, children }: Props) {
     (initialPaletteId as PaletteId) ?? DEFAULT_PALETTE_ID
   );
 
+  const { store } = useDataStore();
+
+  // Re-fetch the palette whenever the active store changes (i.e. when the user
+  // signs in, signs out, or switches accounts). This ensures the correct
+  // palette is applied for the newly authenticated (or anonymous) user.
+  useEffect(() => {
+    store.getPaletteId().then((id) => {
+      setPaletteId((id as PaletteId) ?? DEFAULT_PALETTE_ID);
+    });
+  }, [store]);
+
   useEffect(() => {
     const vars = paletteToStyleVars(getPalette(paletteId));
-    const root = document.documentElement;
     Object.entries(vars).forEach(([key, value]) => {
-      root.style.setProperty(key, value);
+      document.body.style.setProperty(key, value);
     });
   }, [paletteId]);
 

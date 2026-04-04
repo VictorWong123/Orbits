@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useDataStore } from "@frontend/lib/store/StoreProvider";
-import AddProfileForm from "@frontend/components/AddProfileForm";
+import AddPersonPanel from "@frontend/components/AddPersonPanel";
 import ProfileList from "@frontend/components/ProfileList";
 import UserAvatar from "@frontend/components/UserAvatar";
 import ReminderDropdown from "@frontend/components/ReminderDropdown";
@@ -33,9 +33,6 @@ export default function DashboardClient() {
     loadProfiles();
   }, [loadProfiles]);
 
-  // Show nothing while the auth session is still being resolved.
-  if (userEmail === undefined) return null;
-
   return (
     <main className="max-w-md mx-auto bg-[#FDFBF7] min-h-screen">
       <header className="flex items-center justify-between px-6 py-6">
@@ -47,7 +44,7 @@ export default function DashboardClient() {
       </header>
 
       <div className="px-6 pb-8 space-y-6">
-        <AddProfileForm
+        <AddPersonPanel
           existingNames={profiles.map((p) => p.full_name)}
           onSuccess={loadProfiles}
         />

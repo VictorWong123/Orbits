@@ -1,94 +1,67 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Copy, Check } from "lucide-react";
-import { signOut } from "@backend/actions";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import SettingsModal from "@frontend/components/ui/SettingsModal";
-import FriendsManager from "@frontend/components/FriendsManager";
+import UserProfileForm from "@frontend/components/UserProfileForm";
+import ShareableCardsManager from "@frontend/components/ShareableCardsManager";
 
 /**
- * Account management view shown to authenticated users on the /account page.
+ * "My Profiles" page shown to authenticated users at /account.
  *
- * Displays the signed-in email, the user's Orbit ID (shareable UUID for
- * friend requests), app settings, sign-out, and the FriendsManager section.
+ * Displays the About Me bio and shareable cards. Sign-out and settings are
+ * accessible from the UserAvatar dropdown on the dashboard.
  */
 export default function AccountManagement() {
-  const { userEmail, userId } = useDataStore();
+  const { userEmail } = useDataStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const openSettings = useCallback(() => setSettingsOpen(true), []);
-
-  /** Copies the Orbit ID to clipboard and shows a brief confirmation. */
-  async function handleCopyId() {
-    if (!userId) return;
-    await navigator.clipboard.writeText(userId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   return (
     <main className="min-h-screen bg-[#FDFBF7] p-6">
       <div className="w-full max-w-sm mx-auto space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-[#1A3021]">Orbit</h1>
-          <p className="text-sm text-[var(--color-accent)] mt-1">Account</p>
-        </div>
 
-        <div className="bg-white rounded-3xl shadow-sm p-6 space-y-4">
-          <div>
-            <p className="text-xs font-bold text-[var(--color-accent)] uppercase tracking-wide mb-1">
-              Signed in as
-            </p>
-            <p className="text-sm font-semibold text-[#1A3021] truncate">{userEmail}</p>
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            aria-label="Back to dashboard"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold text-[#1A3021]">My Profiles</h1>
+            {userEmail && (
+              <p className="text-xs text-gray-400 truncate">{userEmail}</p>
+            )}
           </div>
-
-          {/* Orbit ID — shareable UUID for friend requests */}
-          {userId && (
-            <div className="border-t border-gray-100 pt-4 space-y-1.5">
-              <p className="text-xs font-bold text-[var(--color-accent)] uppercase tracking-wide">
-                Your Orbit ID
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs font-mono text-[#1A3021] bg-[var(--color-primary-light)] px-3 py-2 rounded-full truncate">
-                  {userId}
-                </code>
-                <button
-                  type="button"
-                  onClick={handleCopyId}
-                  aria-label="Copy Orbit ID"
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                </button>
-              </div>
-              <p className="text-xs text-gray-400">
-                Share this with friends so they can connect with you from a profile page.
-              </p>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={openSettings}
-            className="w-full text-left text-sm font-medium text-[#1A3021] py-2.5 border-t border-gray-100 hover:text-[var(--color-primary)] transition-colors"
+            className="text-xs font-medium text-[var(--color-primary)] hover:opacity-70 transition-opacity shrink-0"
           >
-            App Settings
+            Settings
           </button>
-
-          <form action={signOut} className="border-t border-gray-100 pt-2">
-            <button
-              type="submit"
-              className="w-full text-left text-sm font-medium text-red-400 hover:text-red-500 py-2 transition-colors"
-            >
-              Sign out
-            </button>
-          </form>
         </div>
 
-        {/* Friends & Reminders section */}
-        <FriendsManager />
+        {/* About Me — optional personal bio */}
+        <div className="bg-white rounded-3xl shadow-sm p-6 space-y-4">
+          <h2 className="text-xs font-bold text-[var(--color-accent)] uppercase tracking-wide">
+            About Me
+          </h2>
+          <p className="text-xs text-gray-400">
+            Optional info others will see when they import your card.
+          </p>
+          <UserProfileForm />
+        </div>
+
+        {/* Shareable Cards — create links others can use to import you */}
+        <ShareableCardsManager />
+
       </div>
 
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />

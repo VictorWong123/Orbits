@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -9,11 +9,7 @@ import ProfileTabs from "@frontend/components/ProfileTabs";
 import DeleteProfileButton from "@frontend/components/ui/DeleteProfileButton";
 import UserAvatar from "@frontend/components/UserAvatar";
 import ReminderDropdown from "@frontend/components/ReminderDropdown";
-import PillInput from "@frontend/components/ui/PillInput";
-import SubmitButton from "@frontend/components/ui/SubmitButton";
-import FormError from "@frontend/components/ui/FormError";
-import { useStoreAction } from "@frontend/hooks/useStoreAction";
-import type { Profile, Fact, Event } from "@backend/types/database";
+import type { Profile, Fact, Event, ImportedCardData } from "@backend/types/database";
 
 interface Props {
   profileId: string;
@@ -124,6 +120,10 @@ export default function ProfileClient({ profileId }: Props) {
 
       {/* Tabbed content */}
       <div className="px-6 pb-8 space-y-6">
+        {profile.imported_data && (
+          <ImportedDetailsCard data={profile.imported_data} />
+        )}
+
         <ProfileTabs
           profile={{
             id: profile.id,
@@ -135,89 +135,71 @@ export default function ProfileClient({ profileId }: Props) {
           onMutate={loadAll}
         />
 
-        {/* Connect on Orbit — lets the user link this contact to their Orbit account */}
-        <ConnectOrbitForm profileName={profile.full_name} />
       </div>
     </main>
   );
 }
 
-// ── ConnectOrbitForm ──────────────────────────────────────────────────────────
+// ── ImportedDetailsCard ───────────────────────────────────────────────────────
 
-interface ConnectOrbitFormProps {
-  /** Name of the contact, shown in the section heading. */
-  profileName: string;
+interface ImportedDetailsCardProps {
+  data: ImportedCardData;
 }
 
 /**
- * Small form that lets an authenticated user send a friend request to the
- * contact by pasting their Orbit ID (UUID).
+ * Read-only panel shown at the top of a profile page when the profile was
+ * imported from a shareable card.
  *
- * Only rendered when the user is signed in; returns null otherwise so the
- * profile page stays uncluttered for local users.
+ * Displays only the non-empty fields from the card snapshot. The dashed border
+ * and "read-only" label make it visually distinct from editable content below.
  */
-function ConnectOrbitForm({ profileName }: ConnectOrbitFormProps) {
-  const { store, isAuthenticated } = useDataStore();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [sent, setSent] = useState(false);
+function ImportedDetailsCard({ data }: ImportedDetailsCardProps) {
+  const presetFields: { label: string; value: string | undefined }[] = [
+    { label: "Phone", value: data.phone },
+    { label: "Email", value: data.email },
+    { label: "Hobbies", value: data.hobbies },
+    { label: "Fun Facts", value: data.fun_facts },
+    { label: "Other", value: data.other_notes },
+  ];
 
-  const action = useCallback(
-    (orbitId: string) => store.sendFriendRequest(orbitId),
-    [store]
+  const visiblePreset = presetFields.filter((f) => f.value);
+  const visibleCustom = (data.custom_fields ?? []).filter(
+    (f) => f.label.trim() && f.value.trim()
   );
-
-  const handleSuccess = useCallback(() => {
-    setSent(true);
-  }, []);
-
-  const { error, isPending, execute } = useStoreAction(action, handleSuccess);
-
-  if (!isAuthenticated) return null;
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    const orbitId = (data.get("orbitId") as string | null)?.trim() ?? "";
-    execute(orbitId);
-  }
+  const hasAny = visiblePreset.length > 0 || visibleCustom.length > 0;
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm p-5 space-y-3">
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)]">
-          Connect on Orbit
-        </h3>
-        <p className="text-xs text-gray-400 mt-1">
-          Paste {profileName.split(" ")[0]}&apos;s Orbit ID to send them a friend request.
-          They can find it on their account page.
+    <div className="border-2 border-dashed border-[var(--color-primary-light)] rounded-3xl p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold text-[var(--color-accent)] uppercase tracking-wide">
+          Shared Details
         </p>
+        <span className="text-xs text-gray-400 bg-[var(--color-primary-light)] px-2 py-0.5 rounded-full">
+          read-only
+        </span>
       </div>
 
-      {sent ? (
-        <p className="text-sm font-semibold text-[var(--color-primary)]">
-          Friend request sent!
-        </p>
+      {!hasAny ? (
+        <p className="text-sm text-gray-400">No additional details were shared.</p>
       ) : (
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-2">
-          <div className="flex gap-2">
-            <PillInput
-              variant="white"
-              name="orbitId"
-              type="text"
-              placeholder="Paste their Orbit ID…"
-              required
-              disabled={isPending}
-              className="flex-1 text-sm font-mono"
-            />
-            <SubmitButton
-              isPending={isPending}
-              label="Connect"
-              pendingLabel="Sending…"
-              className="bg-[var(--color-primary)] text-white font-semibold py-2 px-4 rounded-full text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-            />
-          </div>
-          {error && <FormError error={error} size="xs" />}
-        </form>
+        <dl className="space-y-2">
+          {visiblePreset.map(({ label, value }) => (
+            <div key={label}>
+              <dt className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">
+                {label}
+              </dt>
+              <dd className="text-sm text-[#1A3021] mt-0.5 whitespace-pre-wrap">{value}</dd>
+            </div>
+          ))}
+          {visibleCustom.map((field, i) => (
+            <div key={i}>
+              <dt className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">
+                {field.label}
+              </dt>
+              <dd className="text-sm text-[#1A3021] mt-0.5 whitespace-pre-wrap">{field.value}</dd>
+            </div>
+          ))}
+        </dl>
       )}
     </div>
   );

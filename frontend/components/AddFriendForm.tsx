@@ -13,31 +13,31 @@ interface Props {
 }
 
 /**
- * Inline form for sending a friend request by email address.
+ * Inline form for sending a friend request by Orbit ID (UUID).
  *
- * Delegates to `store.sendFriendRequest()` via `useStoreAction`. On success
- * the form is reset and the parent is notified. On failure the error is
- * displayed inline below the input.
+ * The recipient shares their Orbit ID from the /account page. Delegates to
+ * `store.sendFriendRequest()` via `useStoreAction`. On success the form is
+ * reset and the parent is notified. On failure the error is displayed inline.
  */
 export default function AddFriendForm({ onSuccess }: Props) {
   const { store } = useDataStore();
 
   const action = useCallback(
-    (email: string) => store.sendFriendRequest(email),
+    (orbitId: string) => store.sendFriendRequest(orbitId),
     [store]
   );
 
   const { error, isPending, formRef, execute } = useStoreAction(action, onSuccess);
 
   /**
-   * Reads the email from the form and fires the store action.
+   * Reads the Orbit ID from the form and fires the store action.
    * Prevents default form submission so the page does not navigate.
    */
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
-    const email = (data.get("email") as string | null)?.trim() ?? "";
-    execute(email);
+    const orbitId = (data.get("orbitId") as string | null)?.trim() ?? "";
+    execute(orbitId);
   }
 
   return (
@@ -45,17 +45,18 @@ export default function AddFriendForm({ onSuccess }: Props) {
       <div className="flex gap-2">
         <PillInput
           variant="white"
-          name="email"
-          type="email"
-          placeholder="friend@example.com"
+          name="orbitId"
+          type="text"
+          placeholder="Enter 8-character code"
+          maxLength={8}
           required
           disabled={isPending}
-          className="flex-1 text-sm"
+          className="flex-1 text-sm font-mono tracking-widest uppercase"
         />
         <SubmitButton
           isPending={isPending}
-          label="Add friend"
-          pendingLabel="Sending…"
+          label="Connect"
+          pendingLabel="Connecting…"
           className="bg-[var(--color-primary)] text-white font-semibold py-2 px-4 rounded-full text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         />
       </div>

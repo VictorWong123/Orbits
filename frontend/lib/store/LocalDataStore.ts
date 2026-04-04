@@ -6,6 +6,10 @@ import type {
   CreateEventInput,
   Friend,
   Reminder,
+  UserProfile,
+  UpdateMyProfileInput,
+  ShareableCard,
+  CreateShareableCardInput,
 } from "./types";
 import type { Profile, Fact, Event } from "@backend/types/database";
 
@@ -127,6 +131,7 @@ export class LocalDataStore implements DataStore {
       birthday: birthday ?? null,
       avatar_url: null,
       created_at: nowIso(),
+      imported_data: null,
     });
     writeJson(KEYS.profiles, profiles);
     return null;
@@ -241,6 +246,18 @@ export class LocalDataStore implements DataStore {
     return null;
   }
 
+  // ── User Profile stubs ───────────────────────────────────────────────────
+
+  /** Returns null — user profiles require authentication. */
+  async getMyProfile(): Promise<UserProfile | null> {
+    return null;
+  }
+
+  /** User profiles require sign-in. */
+  async updateMyProfile(_input: UpdateMyProfileInput): Promise<string | null> {
+    return "Sign in to use this feature";
+  }
+
   // ── Friends stubs ────────────────────────────────────────────────────────
   // Friends require cross-user communication and are only available to
   // authenticated users. These stubs satisfy the DataStore interface and
@@ -285,5 +302,29 @@ export class LocalDataStore implements DataStore {
   /** Reminders require sign-in. */
   async markReminderRead(_reminderId: string): Promise<string | null> {
     return "Sign in to use friends features";
+  }
+
+  // ── Shareable Cards stubs ────────────────────────────────────────────────
+  // Shareable cards are linked to a Supabase account and cannot be created
+  // or managed without authentication.
+
+  /** Returns an empty array — shareable cards require authentication. */
+  async getShareableCards(): Promise<ShareableCard[]> {
+    return [];
+  }
+
+  /** Shareable cards require sign-in. */
+  async createShareableCard(_input: CreateShareableCardInput): Promise<string | null> {
+    return "Sign in to use this feature";
+  }
+
+  /** Shareable cards require sign-in. */
+  async updateShareableCard(_id: string, _input: CreateShareableCardInput): Promise<string | null> {
+    return "Sign in to use this feature";
+  }
+
+  /** Shareable cards require sign-in. */
+  async deleteShareableCard(_id: string): Promise<string | null> {
+    return "Sign in to use this feature";
   }
 }
