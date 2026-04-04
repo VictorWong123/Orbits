@@ -6,9 +6,8 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@backend/lib/supabase/config";
  * Refreshes the user's Supabase session on every request.
  *
  * Routing rules:
- * - /login        → 301 redirect to /account (legacy route)
- * - /account      → redirect to /dashboard when already authenticated
- * - All other routes are open to unauthenticated users (localStorage mode).
+ * - /login  → 301 redirect to /account (legacy route)
+ * - All other routes are open to both authenticated and unauthenticated users.
  */
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -51,13 +50,6 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/account";
     return NextResponse.redirect(url, 301);
-  }
-
-  // Authenticated users visiting /account go straight to the dashboard.
-  if (user && pathname.startsWith("/account")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;

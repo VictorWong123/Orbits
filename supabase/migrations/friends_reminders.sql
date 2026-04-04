@@ -23,22 +23,22 @@ CREATE TABLE IF NOT EXISTS public.friendships (
 
 ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
 
--- Either party can read their own friendship rows.
+DROP POLICY IF EXISTS "friendships_select" ON public.friendships;
 CREATE POLICY "friendships_select"
   ON public.friendships FOR SELECT
   USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
 
--- Only the requester can insert (they become requester_id).
+DROP POLICY IF EXISTS "friendships_insert" ON public.friendships;
 CREATE POLICY "friendships_insert"
   ON public.friendships FOR INSERT
   WITH CHECK (auth.uid() = requester_id);
 
--- Only the receiver can update (to accept the request).
+DROP POLICY IF EXISTS "friendships_update" ON public.friendships;
 CREATE POLICY "friendships_update"
   ON public.friendships FOR UPDATE
   USING (auth.uid() = receiver_id);
 
--- Either party can delete (unfriend or cancel request).
+DROP POLICY IF EXISTS "friendships_delete" ON public.friendships;
 CREATE POLICY "friendships_delete"
   ON public.friendships FOR DELETE
   USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
@@ -60,22 +60,22 @@ CREATE TABLE IF NOT EXISTS public.reminders (
 
 ALTER TABLE public.reminders ENABLE ROW LEVEL SECURITY;
 
--- Either party can read.
+DROP POLICY IF EXISTS "reminders_select" ON public.reminders;
 CREATE POLICY "reminders_select"
   ON public.reminders FOR SELECT
   USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
 
--- Only the sender can insert.
+DROP POLICY IF EXISTS "reminders_insert" ON public.reminders;
 CREATE POLICY "reminders_insert"
   ON public.reminders FOR INSERT
   WITH CHECK (auth.uid() = sender_id);
 
--- Only the receiver can update (mark as read).
+DROP POLICY IF EXISTS "reminders_update" ON public.reminders;
 CREATE POLICY "reminders_update"
   ON public.reminders FOR UPDATE
   USING (auth.uid() = receiver_id);
 
--- Either party can delete.
+DROP POLICY IF EXISTS "reminders_delete" ON public.reminders;
 CREATE POLICY "reminders_delete"
   ON public.reminders FOR DELETE
   USING (auth.uid() = receiver_id OR auth.uid() = sender_id);

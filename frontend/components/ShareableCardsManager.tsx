@@ -18,7 +18,7 @@ import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import { useStoreAction } from "@frontend/hooks/useStoreAction";
 import SubmitButton from "@frontend/components/ui/SubmitButton";
 import FormError from "@frontend/components/ui/FormError";
-import DeleteButton from "@frontend/components/ui/DeleteButton";
+import ConfirmDialog from "@frontend/components/ui/ConfirmDialog";
 import type {
   ShareableCard,
   CreateShareableCardInput,
@@ -504,11 +504,14 @@ interface CardRowProps {
 /**
  * A single card row with name, QR code toggle, copy ID, edit, and delete.
  * Edit and QR panels are mutually exclusive — opening one closes the other.
+ * Deletion requires confirmation via a styled dialog before the action fires.
  */
 function CardRow({ card, onUpdate, onDelete }: CardRowProps) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   /** Returns the full share URL (used only for QR encoding). */
   function shareUrl(): string {
@@ -522,9 +525,12 @@ function CardRow({ card, onUpdate, onDelete }: CardRowProps) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function handleDelete(): Promise<string | null> {
+  /** Runs the delete action after the user confirms in the dialog. */
+  async function handleConfirmDelete() {
+    setIsDeleting(true);
     await onDelete();
-    return null;
+    setIsDeleting(false);
+    setShowDeleteDialog(false);
   }
 
   function toggleEdit() {
@@ -576,11 +582,25 @@ function CardRow({ card, onUpdate, onDelete }: CardRowProps) {
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
 
-        <DeleteButton
-          ariaLabel={`Delete ${card.card_name}`}
-          onDelete={handleDelete}
-        />
+        <button
+          type="button"
+          onClick={() => setShowDeleteDialog(true)}
+          aria-label={`Delete ${card.card_name}`}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-gray-400 hover:text-red-400 transition-colors shrink-0"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Delete card?"
+        message={`"${card.card_name}" will be permanently deleted and its share link will stop working. This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+        isPending={isDeleting}
+      />
 
       {isEditing && (
         <EditCardForm

@@ -40,6 +40,9 @@ CLAUDE.local.md
 
 .playwright-mcp/
 
+# Test credentials — never commit
+test_file
+
 # Playwright screenshots
 screenshots/
 

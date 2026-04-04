@@ -37,3 +37,11 @@ export function invalidateFriendsCache(): void {
 export function invalidateRemindersCache(): void {
   revalidatePath(ACCOUNT_PATH);
 }
+
+/**
+ * Invalidates the Next.js cache for the account page after any shareable-card
+ * mutation so the card list re-fetches on the next request.
+ */
+export function invalidateCardsCache(): void {
+  revalidatePath(ACCOUNT_PATH);
+}

@@ -14,7 +14,9 @@ import AccountManagement from "@frontend/components/AccountManagement";
 export default function AccountPage() {
   const { userEmail } = useDataStore();
 
-  if (userEmail === undefined) return null;
-
+  // Show AccountManagement for authenticated users; AccountForm otherwise.
+  // When undefined (session still resolving), default to AccountForm — the
+  // middleware already redirects authenticated users away from this page, so
+  // any unauthenticated user should see the form immediately.
   return userEmail ? <AccountManagement /> : <AccountForm />;
 }

@@ -8,6 +8,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Stack:** Next.js 15 (App Router), React 19, TypeScript, Supabase (PostgreSQL + Auth), Zod, Tailwind CSS.
 
+## Working Rules
+
+### Bug Fixing
+- Make the **minimal targeted change** — do not refactor adjacent code unless explicitly asked.
+- After every edit, re-read the edited file and confirm nothing adjacent was accidentally removed (imports, styles, logic).
+- Fix one thing at a time. Do not bundle unrelated fixes into a single change.
+
+### Build Verification
+- Run `npm run build` after every TypeScript edit. Do not proceed until the build is clean.
+- If a build error is introduced by a change, fix it before touching any other file.
+
+### SQL Migrations
+- Always write migrations idempotently:
+  - `CREATE TABLE IF NOT EXISTS`
+  - `DROP POLICY IF EXISTS` before every `CREATE POLICY` (PostgreSQL has no `CREATE POLICY IF NOT EXISTS`)
+  - `DROP TRIGGER IF EXISTS` before every `CREATE TRIGGER`
+  - `CREATE OR REPLACE FUNCTION` for all functions
+- Never assume a migration is being run for the first time.
+
+### Code Editing
+- Preserve all existing CSS classes and styles unless explicitly told to remove them.
+- After any edit that touches styling, re-read the file to confirm no classes were accidentally deleted.
+- Do not add features, abstractions, or error handling beyond what was asked.
+
+### Visual Verification
+- Do NOT use Playwright or headless browsers to verify 3D/WebGL content — it will not render. Read the code and ask the user to verify visually instead.
+- For non-WebGL UI changes, Playwright screenshots are fine.
+
+### Supabase / Auth
+- Always use `window.location.href` (hard redirect) for post-sign-out navigation — never `router.push()`. The middleware redirects `/account` → `/dashboard` for authenticated users; a soft nav can race against cookie clearing.
+- Never use the server Supabase client (`backend/lib/supabase/server.ts`) in Client Components, and never use the browser client (`frontend/lib/supabase/client.ts`) in Server Components or Actions.
+
 ## Commands
 
 ```bash
@@ -63,7 +95,7 @@ frontend/
       PillInput.tsx       # Reusable pill-shaped text input (colored or white variant)
       DateTimePicker.tsx  # Calendar + time input using react-day-picker
       FormError.tsx       # Error message display (optional highlighted/red variant)
-      ThemeProvider.tsx   # Context: manages palette ID, syncs CSS custom properties to <html>
+      ThemeProvider.tsx   # Context: manages palette ID, syncs CSS custom properties to <body>
       SettingsModal.tsx   # Palette color-picker modal
       MigrationModal.tsx  # Local→Supabase migration offer after sign-in
       DeleteButton.tsx    # Inline trash icon button with async state
