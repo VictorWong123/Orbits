@@ -36,7 +36,10 @@ next-env.d.ts
 # Production build
 build/
 dist/
-claude.local.md
+CLAUDE.local.md
 
 .playwright-mcp/
+
+# Playwright screenshots
+screenshots/
 

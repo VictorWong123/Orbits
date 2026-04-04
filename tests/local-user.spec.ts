@@ -56,17 +56,20 @@ test("add a fact to a profile and see it persist after reload", async ({ page })
   await page.getByPlaceholder("Full name").fill("Alice");
   await page.getByRole("button", { name: "Add person" }).click();
   await page.getByText("Alice").click();
+  await page.waitForURL(/\/profile\//);
 
-  // Switch to Notes tab.
-  await page.getByRole("button", { name: /Notes/ }).click();
+  // Switch to Add tab to access the note input form.
+  await page.getByRole("button", { name: /Add/ }).click();
   await page.getByPlaceholder("Add a note...").fill("Loves hiking");
-  await page.getByRole("button", { name: "Add" }).first().click();
+  // .nth(1): [0]=Add tab toggle, [1]=AddFactForm submit, [2]=AddEventForm submit
+  await page.getByRole("button", { name: "Add" }).nth(1).click();
 
+  // Switch to Notes tab to verify the fact appeared.
+  await page.getByRole("button", { name: /Notes/ }).click();
   await expect(page.getByText("Loves hiking")).toBeVisible();
 
   await page.reload();
-  // After reload the profile page defaults to the Info tab — switch back to Notes.
-  await page.getByRole("button", { name: /Notes/ }).click();
+  // After reload the profile page defaults to the Notes tab — fact is visible immediately.
   await expect(page.getByText("Loves hiking")).toBeVisible();
 });
 
@@ -76,19 +79,23 @@ test("delete a fact and confirm it is gone after reload", async ({ page }) => {
   await page.getByPlaceholder("Full name").fill("Charlie");
   await page.getByRole("button", { name: "Add person" }).click();
   await page.getByText("Charlie").click();
+  await page.waitForURL(/\/profile\//);
 
-  await page.getByRole("button", { name: /Notes/ }).click();
+  // Add the note via the Add tab.
+  await page.getByRole("button", { name: /Add/ }).click();
   await page.getByPlaceholder("Add a note...").fill("Temporary note");
-  await page.getByRole("button", { name: "Add" }).first().click();
+  // .nth(1): [0]=Add tab toggle, [1]=AddFactForm submit, [2]=AddEventForm submit
+  await page.getByRole("button", { name: "Add" }).nth(1).click();
+
+  // Switch to Notes tab to verify and delete.
+  await page.getByRole("button", { name: /Notes/ }).click();
   await expect(page.getByText("Temporary note")).toBeVisible();
 
-  // Click the delete button for the fact.
   await page.getByRole("button", { name: "Delete note" }).click();
   await expect(page.getByText("Temporary note")).not.toBeVisible();
 
   await page.reload();
-  // After reload the profile page defaults to the Info tab — switch back to Notes.
-  await page.getByRole("button", { name: /Notes/ }).click();
+  // After reload defaults to Notes tab — note should still be gone.
   await expect(page.getByText("Temporary note")).not.toBeVisible();
 });
 
@@ -98,18 +105,24 @@ test("add an event to a profile and see it persist after reload", async ({ page 
   await page.getByPlaceholder("Full name").fill("Diana");
   await page.getByRole("button", { name: "Add person" }).click();
   await page.getByText("Diana").click();
+  await page.waitForURL(/\/profile\//);
 
+  // Switch to Add tab to access the event input form.
+  await page.getByRole("button", { name: /Add/ }).click();
   await page.getByPlaceholder("Event title").fill("Coffee catch-up");
   // Open the DateTimePicker, pick the first calendar day, then confirm.
   await page.getByRole("button", { name: "Date & time" }).click();
   await page.locator('button[aria-label*="2026"]').first().click();
   await page.getByRole("button", { name: "Done" }).click();
-  await page.getByRole("button", { name: "Add" }).first().click();
+  // .nth(2): [0]=Add tab toggle, [1]=AddFactForm submit, [2]=AddEventForm submit
+  await page.getByRole("button", { name: "Add" }).nth(2).click();
 
+  // Switch to Notes tab to verify the event appeared.
+  await page.getByRole("button", { name: /Notes/ }).click();
   await expect(page.getByText("Coffee catch-up")).toBeVisible();
 
   await page.reload();
-  // Events are on the Info tab which is the default — no tab switch needed.
+  // After reload defaults to Notes tab — events are visible immediately.
   await expect(page.getByText("Coffee catch-up")).toBeVisible();
 });
 
@@ -119,6 +132,7 @@ test("delete a profile and redirect to dashboard", async ({ page }) => {
   await page.getByPlaceholder("Full name").fill("TempPerson");
   await page.getByRole("button", { name: "Add person" }).click();
   await page.getByText("TempPerson").click();
+  await page.waitForURL(/\/profile\//);
 
   // Confirm the delete dialog.
   page.on("dialog", (d) => d.accept());

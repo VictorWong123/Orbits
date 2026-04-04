@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 
 const DASHBOARD_PATH = "/dashboard";
 const PROFILE_BASE_PATH = "/profile";
+const ACCOUNT_PATH = "/account";
 
 /**
  * Invalidates the Next.js cache for a specific profile page so server
@@ -19,4 +20,20 @@ export function invalidateProfileCache(profileId: string): void {
  */
 export function invalidateDashboardCache(): void {
   revalidatePath(DASHBOARD_PATH);
+}
+
+/**
+ * Invalidates the Next.js cache for the account page after any friends
+ * mutation so server components re-fetch friendship state on the next request.
+ */
+export function invalidateFriendsCache(): void {
+  revalidatePath(ACCOUNT_PATH);
+}
+
+/**
+ * Invalidates the Next.js cache for the account page after any reminders
+ * mutation so server components re-fetch reminder state on the next request.
+ */
+export function invalidateRemindersCache(): void {
+  revalidatePath(ACCOUNT_PATH);
 }

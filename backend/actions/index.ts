@@ -8,3 +8,5 @@ export * from "./profiles";
 export * from "./facts";
 export * from "./events";
 export * from "./migration";
+export * from "./friends";
+export * from "./reminders";

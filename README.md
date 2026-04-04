@@ -113,6 +113,37 @@ create policy "Users can manage their own events"
   on events for all using (auth.uid() = user_id);
 ```
 
+Then run the additional migrations for settings, friends, and reminders (**required** — the app will error without these):
+
+**Migration 2 — User Settings** (`supabase/migrations/001_user_settings.sql`):
+
+```sql
+create table if not exists user_settings (
+  user_id   uuid primary key references auth.users(id) on delete cascade,
+  palette_id text not null default 'sage',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table user_settings enable row level security;
+
+create policy "Users manage their own settings"
+  on user_settings for all
+  using  (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create or replace function update_updated_at_column()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end;
+$$;
+
+create trigger user_settings_updated_at
+  before update on user_settings
+  for each row execute function update_updated_at_column();
+```
+
+**Migration 3 — Friends & Reminders** (`supabase/migrations/friends_reminders.sql`) — paste the full contents of that file into the SQL Editor and run it.
+
 ### 3. Configure environment variables
 
 Create a `.env.local` file at the project root:
