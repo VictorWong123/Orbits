@@ -5,7 +5,6 @@ import { z } from "zod";
 import { getAuthenticatedSupabase } from "@backend/lib/auth-helpers";
 import { parseOrError } from "@backend/lib/validators";
 import { invalidateDashboardCache } from "@backend/lib/cache";
-import { createClient } from "@backend/lib/supabase/server";
 
 const ProfileSchema = z.object({
   full_name: z.string().min(1, "Name is required"),
@@ -50,12 +49,16 @@ export async function createProfile(
  *   /dashboard and never returns — redirect() throws internally in Next.js.
  */
 export async function deleteProfile(profileId: string): Promise<string> {
-  const supabase = await createClient();
+  const auth = await getAuthenticatedSupabase();
+  if (!auth) return "Not authenticated";
+
+  const { supabase, user } = auth;
 
   const { error } = await supabase
     .from("profiles")
     .delete()
-    .eq("id", profileId);
+    .eq("id", profileId)
+    .eq("user_id", user.id);
 
   if (error) return error.message;
 

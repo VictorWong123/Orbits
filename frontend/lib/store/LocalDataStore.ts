@@ -247,7 +247,7 @@ export class LocalDataStore implements DataStore {
    */
   async updatePaletteId(paletteId: string): Promise<string | null> {
     localStorage.setItem(KEYS.palette, paletteId);
-    document.cookie = `orbits_palette=${paletteId};path=/;max-age=31536000;SameSite=Lax`;
+    document.cookie = `orbits_palette=${paletteId};path=/;max-age=31536000;SameSite=Lax;Secure`;
     return null;
   }
 

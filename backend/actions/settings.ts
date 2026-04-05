@@ -31,9 +31,18 @@ export async function getSettings(): Promise<UserSettings | null> {
   return data ?? null;
 }
 
+const VALID_PALETTE_IDS = ["sage", "ocean", "lavender", "rose", "amber", "slate"] as const;
+
+const UpdatePaletteSchema = z.object({
+  palette_id: z.enum(VALID_PALETTE_IDS, {
+    errorMap: () => ({ message: "Invalid palette ID" }),
+  }),
+});
+
 /**
  * Upserts the user's preferred palette ID.
  * Creates the settings row on first use; updates it on subsequent calls.
+ * Only accepts one of the six defined palette IDs.
  *
  * @param paletteId - One of the palette IDs defined in `frontend/lib/theme.ts`.
  * @returns An error string on failure, or null on success.
@@ -42,10 +51,13 @@ export async function updateSettings(paletteId: string): Promise<string | null> 
   const auth = await getAuthenticatedSupabase();
   if (!auth) return "Not authenticated";
 
+  const result = parseOrError(UpdatePaletteSchema, { palette_id: paletteId });
+  if (typeof result === "string") return result;
+
   const { supabase, user } = auth;
 
   const { error } = await supabase.from("user_settings").upsert(
-    { user_id: user.id, palette_id: paletteId },
+    { user_id: user.id, palette_id: result.palette_id },
     { onConflict: "user_id" }
   );
 

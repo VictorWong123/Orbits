@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -13,6 +13,12 @@ import type { Profile, Fact, Event, ImportedCardData } from "@backend/types/data
 
 interface Props {
   profileId: string;
+  /** Server-fetched profile data — skips the client-side loading waterfall when provided. */
+  initialProfile?: Profile | null;
+  /** Server-fetched facts — skips the client-side loading waterfall when provided. */
+  initialFacts?: Fact[];
+  /** Server-fetched events — skips the client-side loading waterfall when provided. */
+  initialEvents?: Event[];
 }
 
 /**
@@ -50,14 +56,22 @@ function ProfileSkeleton() {
  * ProfileTabs so that every mutation triggers a clean re-fetch. Redirects
  * to /dashboard if the profile is not found.
  */
-export default function ProfileClient({ profileId }: Props) {
+export default function ProfileClient({
+  profileId,
+  initialProfile,
+  initialFacts,
+  initialEvents,
+}: Props) {
   const { store, userEmail } = useDataStore();
   const router = useRouter();
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [facts, setFacts] = useState<Fact[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const hasInitialData = initialProfile != null;
+  const usedInitialData = useRef(hasInitialData);
+
+  const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null);
+  const [facts, setFacts] = useState<Fact[]>(initialFacts ?? []);
+  const [events, setEvents] = useState<Event[]>(initialEvents ?? []);
+  const [isLoading, setIsLoading] = useState(!hasInitialData);
 
   /** Fetches profile + facts + events in parallel. */
   const loadAll = useCallback(async () => {
@@ -78,11 +92,15 @@ export default function ProfileClient({ profileId }: Props) {
     setIsLoading(false);
   }, [store, profileId, router]);
 
-  // Only begin loading once the auth session has resolved. Without this guard,
-  // the effect fires with LocalDataStore while the session check is in-flight,
-  // causing getProfile to return null and redirecting to /dashboard.
+  // Skip the initial client-side fetch when server-provided data is available.
+  // The ref ensures we only skip once — subsequent effect runs (e.g. from auth
+  // state changes) will fetch fresh data from the client-side store.
   useEffect(() => {
     if (userEmail === undefined) return;
+    if (usedInitialData.current) {
+      usedInitialData.current = false;
+      return;
+    }
     setIsLoading(true);
     loadAll();
   }, [loadAll, userEmail]);

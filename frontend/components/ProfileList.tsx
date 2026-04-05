@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ChevronRight } from "lucide-react";
 import { getInitials, relativeTime } from "@frontend/lib/formatters";
@@ -109,6 +109,12 @@ function ProfileCard({ profile, tags, onDelete }: CardProps) {
   const { store } = useDataStore();
   const router = useRouter();
 
+  const profileUrl = `/profile/${profile.id}`;
+
+  useEffect(() => {
+    router.prefetch(profileUrl);
+  }, [router, profileUrl]);
+
   const visibleTag = tags[0];
   const overflow = tags.length - 1;
 
@@ -127,7 +133,7 @@ function ProfileCard({ profile, tags, onDelete }: CardProps) {
         confirmLabel="Delete"
       >
         <div
-          onClick={() => router.push(`/profile/${profile.id}`)}
+          onClick={() => router.push(profileUrl)}
           className="flex items-center gap-4 p-4 bg-white cursor-pointer select-none"
         >
           {/* Initials avatar */}

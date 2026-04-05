@@ -104,12 +104,16 @@ export function StoreProvider({ children }: Props) {
   // Detect the null → string transition (user just signed in from not-authenticated).
   useEffect(() => {
     if (prevUserEmail.current === null && typeof userEmail === "string") {
-      const localProfiles: unknown[] = JSON.parse(
-        localStorage.getItem("orbits:profiles") ?? "[]"
-      );
-      if (localProfiles.length > 0) {
-        setLocalProfileCount(localProfiles.length);
-        setMigrationPending(true);
+      try {
+        const localProfiles: unknown[] = JSON.parse(
+          localStorage.getItem("orbits:profiles") ?? "[]"
+        );
+        if (localProfiles.length > 0) {
+          setLocalProfileCount(localProfiles.length);
+          setMigrationPending(true);
+        }
+      } catch {
+        // Malformed JSON in localStorage — skip migration offer.
       }
     }
     prevUserEmail.current = userEmail;

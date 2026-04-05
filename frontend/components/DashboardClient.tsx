@@ -22,9 +22,14 @@ export default function DashboardClient() {
 
   /** (Re)loads profiles from the active store. Passed as onSuccess to AddProfileForm. */
   const loadProfiles = useCallback(async () => {
-    const data = await store.getProfiles();
-    setProfiles(data);
-    setIsLoading(false);
+    try {
+      const data = await store.getProfiles();
+      setProfiles(data);
+    } catch (err) {
+      console.error("Failed to load profiles:", err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [store]);
 
   // Reload whenever the active store changes (e.g. local → Supabase after sign-in).

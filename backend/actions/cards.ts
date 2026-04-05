@@ -9,13 +9,19 @@ import {
   invalidateDashboardCache,
 } from "@backend/lib/cache";
 
+const CustomFieldSchema = z.object({
+  label: z.string().max(100),
+  value: z.string().max(500),
+});
+
 const CreateCardSchema = z.object({
   card_name: z.string().min(1, "Card name is required").max(100),
   phone: z.string().max(50).optional(),
-  email: z.string().max(254).optional(),
+  email: z.string().email("Invalid email format").max(254).optional(),
   hobbies: z.string().max(500).optional(),
   fun_facts: z.string().max(1000).optional(),
   other_notes: z.string().max(2000).optional(),
+  custom_fields: z.array(CustomFieldSchema).max(20).optional(),
 });
 
 /**
@@ -38,6 +44,16 @@ export async function createCard(
 
   const { supabase, user } = auth;
 
+  let parsedCustomFields: unknown = undefined;
+  const rawCustomFields = formData.get("custom_fields");
+  if (rawCustomFields && typeof rawCustomFields === "string") {
+    try {
+      parsedCustomFields = JSON.parse(rawCustomFields);
+    } catch {
+      return "Invalid custom fields format";
+    }
+  }
+
   const result = parseOrError(CreateCardSchema, {
     card_name: formData.get("card_name"),
     phone: formData.get("phone") || undefined,
@@ -45,6 +61,7 @@ export async function createCard(
     hobbies: formData.get("hobbies") || undefined,
     fun_facts: formData.get("fun_facts") || undefined,
     other_notes: formData.get("other_notes") || undefined,
+    custom_fields: parsedCustomFields || undefined,
   });
   if (typeof result === "string") return result;
 
@@ -56,6 +73,7 @@ export async function createCard(
     hobbies: result.hobbies ?? null,
     fun_facts: result.fun_facts ?? null,
     other_notes: result.other_notes ?? null,
+    custom_fields: result.custom_fields ?? [],
   });
 
   if (error) return error.message;
@@ -129,6 +147,15 @@ export async function importSharedCard(
     .single();
 
   if (fetchError || !card) return "Card not found or has been removed.";
+
+  const { data: existingImport } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .filter("imported_data->>card_id", "eq", cardId)
+    .maybeSingle();
+
+  if (existingImport) return "You've already imported this card.";
 
   // Build the imported_data snapshot, excluding null/empty fields.
   const importedData: Record<string, unknown> = {

@@ -158,9 +158,16 @@ export class SupabaseDataStore implements DataStore {
     return error?.message ?? null;
   }
 
-  /** Deletes a fact by ID. RLS enforces ownership. */
+  /** Deletes a fact by ID. RLS enforces ownership; user_id filter is defense-in-depth. */
   async deleteFact(factId: string, _profileId: string): Promise<string | null> {
-    const { error } = await this.supabase.from("facts").delete().eq("id", factId);
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { error } = await this.supabase
+      .from("facts")
+      .delete()
+      .eq("id", factId)
+      .eq("user_id", userId);
     return error?.message ?? null;
   }
 
@@ -190,24 +197,35 @@ export class SupabaseDataStore implements DataStore {
     return error?.message ?? null;
   }
 
-  /** Deletes an event by ID. RLS enforces ownership. */
+  /** Deletes an event by ID. RLS enforces ownership; user_id filter is defense-in-depth. */
   async deleteEvent(eventId: string, _profileId: string): Promise<string | null> {
-    const { error } = await this.supabase.from("events").delete().eq("id", eventId);
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { error } = await this.supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+      .eq("user_id", userId);
     return error?.message ?? null;
   }
 
   /**
    * Updates the birthday field on a profile row.
-   * Pass null to clear the birthday. RLS enforces ownership.
+   * Pass null to clear the birthday. RLS enforces ownership; user_id filter is defense-in-depth.
    */
   async updateBirthday(
     profileId: string,
     birthday: string | null
   ): Promise<string | null> {
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
     const { error } = await this.supabase
       .from("profiles")
       .update({ birthday })
-      .eq("id", profileId);
+      .eq("id", profileId)
+      .eq("user_id", userId);
 
     return error?.message ?? null;
   }
@@ -227,7 +245,7 @@ export class SupabaseDataStore implements DataStore {
     );
 
     if (!error) {
-      document.cookie = `orbits_palette=${paletteId};path=/;max-age=31536000;SameSite=Lax`;
+      document.cookie = `orbits_palette=${paletteId};path=/;max-age=31536000;SameSite=Lax;Secure`;
     }
 
     return error?.message ?? null;
