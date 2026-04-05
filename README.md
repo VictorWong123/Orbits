@@ -239,6 +239,41 @@ npx playwright test              # Run all tests
 npx playwright test --ui         # Interactive UI mode
 ```
 
+## Deploying to Vercel
+
+### 1. Push to GitHub
+
+Make sure your repo is on GitHub. The `.env.local` file is gitignored — never commit it.
+
+### 2. Connect to Vercel
+
+1. Go to [vercel.com](https://vercel.com) → **Add New Project** → import your GitHub repo.
+2. Vercel auto-detects Next.js — no build settings need to change.
+3. Before deploying, add your environment variables under **Environment Variables**:
+
+   | Name | Value |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+
+4. Click **Deploy**. Vercel builds and hosts the app, giving you a `.vercel.app` URL.
+
+### 3. Configure Supabase auth URLs
+
+Once you have your production URL (e.g. `https://orbits.vercel.app`), add it to Supabase so auth flows work correctly:
+
+1. In your Supabase dashboard, go to **Authentication → URL Configuration**.
+2. Set **Site URL** to your production URL: `https://orbits.vercel.app`
+3. Under **Redirect URLs**, add both:
+   - `http://localhost:3000/**` (local dev)
+   - `https://orbits.vercel.app/**` (production)
+
+This is required for email confirmation and password-reset links to redirect users back to the correct host.
+
+### Environment variables for local dev
+
+Copy `.env.example` to `.env.local` and fill in your Supabase credentials. Local dev continues to use `http://localhost:3000` automatically.
+
 ## Security Notes
 
 - **RLS is always on.** Never disable Row Level Security on any table.
