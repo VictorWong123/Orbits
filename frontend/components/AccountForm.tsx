@@ -1,11 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { signIn, signUp } from "@backend/actions";
 import PillInput from "@frontend/components/ui/PillInput";
 import FormError from "@frontend/components/ui/FormError";
 
 type AuthMode = "signin" | "signup";
+
+function initialAuthMode(sp: { get: (key: string) => string | null }): AuthMode {
+  return sp.get("mode") === "signup" ? "signup" : "signin";
+}
 
 /**
  * Sign-in / sign-up form shown to unauthenticated users on the /account page.
@@ -13,9 +18,12 @@ type AuthMode = "signin" | "signup";
  * Toggling between Sign In and Sign Up switches the active server action while
  * sharing the same email and password fields. The sliding pill tab provides
  * a visual indicator of the current mode.
+ *
+ * `?mode=signup` opens the Sign Up tab (e.g. from the landing page).
  */
 export default function AccountForm() {
-  const [mode, setMode] = useState<AuthMode>("signin");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<AuthMode>(() => initialAuthMode(searchParams));
   const [signInError, signInAction] = useActionState(signIn, null);
   const [signUpError, signUpAction] = useActionState(signUp, null);
 

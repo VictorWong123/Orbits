@@ -12,6 +12,11 @@ import type {
   CreateShareableCardInput,
 } from "./types";
 import type { Profile, Fact, Event } from "@backend/types/database";
+import {
+  DEFAULT_PALETTE_ID,
+  PALETTES,
+  readPaletteIdFromCookie,
+} from "@frontend/lib/theme";
 
 /** localStorage key names for each data collection. */
 const KEYS = {
@@ -27,9 +32,6 @@ const KEYS = {
  * this value is replaced with their real Supabase UUID.
  */
 export const LOCAL_USER_ID = "local";
-
-/** Default palette ID used when none has been explicitly saved. */
-const DEFAULT_PALETTE_ID = "sage";
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
 
@@ -115,7 +117,9 @@ export class LocalDataStore implements DataStore {
 
   /** Returns the saved palette ID, defaulting to the app default. */
   async getPaletteId(): Promise<string> {
-    return localStorage.getItem(KEYS.palette) ?? DEFAULT_PALETTE_ID;
+    const raw = localStorage.getItem(KEYS.palette);
+    if (raw && raw in PALETTES) return raw;
+    return readPaletteIdFromCookie() ?? DEFAULT_PALETTE_ID;
   }
 
   /** Creates a new profile and persists it to localStorage. */
