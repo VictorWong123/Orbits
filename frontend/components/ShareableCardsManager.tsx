@@ -18,7 +18,7 @@ import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import { useStoreAction } from "@frontend/hooks/useStoreAction";
 import SubmitButton from "@frontend/components/ui/SubmitButton";
 import FormError from "@frontend/components/ui/FormError";
-import ConfirmDialog from "@frontend/components/ui/ConfirmDialog";
+import SwipeToDelete from "@frontend/components/ui/SwipeToDelete";
 import type {
   ShareableCard,
   CreateShareableCardInput,
@@ -504,14 +504,13 @@ interface CardRowProps {
 /**
  * A single card row with name, QR code toggle, copy ID, edit, and delete.
  * Edit and QR panels are mutually exclusive — opening one closes the other.
- * Deletion requires confirmation via a styled dialog before the action fires.
+ * Deletion is triggered by swiping the header row left; a ConfirmDialog
+ * appears when the swipe threshold is reached.
  */
 function CardRow({ card, onUpdate, onDelete }: CardRowProps) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   /** Returns the full share URL (used only for QR encoding). */
   function shareUrl(): string {
@@ -523,14 +522,6 @@ function CardRow({ card, onUpdate, onDelete }: CardRowProps) {
     await navigator.clipboard.writeText(card.id);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }
-
-  /** Runs the delete action after the user confirms in the dialog. */
-  async function handleConfirmDelete() {
-    setIsDeleting(true);
-    await onDelete();
-    setIsDeleting(false);
-    setShowDeleteDialog(false);
   }
 
   function toggleEdit() {
@@ -545,62 +536,51 @@ function CardRow({ card, onUpdate, onDelete }: CardRowProps) {
 
   return (
     <li className="bg-[var(--color-primary-light)] rounded-2xl overflow-hidden">
-      <div className="flex items-center gap-2 p-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-[#1A3021] truncate">{card.card_name}</p>
-          <p className="text-xs text-gray-400 mt-0.5 font-mono truncate">
-            {card.id.slice(0, 8)}…
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={toggleEdit}
-          aria-label={isEditing ? "Cancel edit" : "Edit card"}
-          className={`w-8 h-8 flex items-center justify-center rounded-full bg-white hover:opacity-80 transition-opacity shrink-0 ${
-            isEditing ? "text-[var(--color-primary)]" : "text-gray-400"
-          }`}
-        >
-          {isEditing ? <X size={14} /> : <Pencil size={14} />}
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleQr}
-          aria-label={showQr ? "Hide QR code" : "Show QR code"}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
-        >
-          <QrCode size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={handleCopyId}
-          aria-label="Copy card ID"
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
-        >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowDeleteDialog(true)}
-          aria-label={`Delete ${card.card_name}`}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-gray-400 hover:text-red-400 transition-colors shrink-0"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-
-      <ConfirmDialog
-        open={showDeleteDialog}
-        title="Delete card?"
-        message={`"${card.card_name}" will be permanently deleted and its share link will stop working. This cannot be undone.`}
+      {/* Swipe the header left to reveal the delete zone */}
+      <SwipeToDelete
+        onDelete={onDelete}
+        confirmTitle="Delete card?"
+        confirmMessage={`"${card.card_name}" will be permanently deleted and its share link will stop working. This cannot be undone.`}
         confirmLabel="Delete"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setShowDeleteDialog(false)}
-        isPending={isDeleting}
-      />
+      >
+        <div className="flex items-center gap-2 p-3 bg-[var(--color-primary-light)]">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#1A3021] truncate">{card.card_name}</p>
+            <p className="text-xs text-gray-400 mt-0.5 font-mono truncate">
+              {card.id.slice(0, 8)}…
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleEdit}
+            aria-label={isEditing ? "Cancel edit" : "Edit card"}
+            className={`w-8 h-8 flex items-center justify-center rounded-full bg-white hover:opacity-80 transition-opacity shrink-0 ${
+              isEditing ? "text-[var(--color-primary)]" : "text-gray-400"
+            }`}
+          >
+            {isEditing ? <X size={14} /> : <Pencil size={14} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleQr}
+            aria-label={showQr ? "Hide QR code" : "Show QR code"}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
+          >
+            <QrCode size={14} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyId}
+            aria-label="Copy card ID"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-[var(--color-primary)] hover:opacity-80 transition-opacity shrink-0"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
+      </SwipeToDelete>
 
       {isEditing && (
         <EditCardForm
