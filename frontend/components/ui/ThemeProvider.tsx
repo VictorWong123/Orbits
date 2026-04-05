@@ -64,9 +64,18 @@ export default function ThemeProvider({ initialPaletteId, children }: Props) {
   // palette is applied for the newly authenticated (or anonymous) user.
   useEffect(() => {
     store.getPaletteId().then((id) => {
-      setPaletteId((id as PaletteId) ?? DEFAULT_PALETTE_ID);
+      const resolved = (id as PaletteId) ?? DEFAULT_PALETTE_ID;
+      setPaletteId(() => {
+        const seed = (initialPaletteId as PaletteId) ?? DEFAULT_PALETTE_ID;
+        // Avoid flashing the app default when SSR/cookie already had the user's choice
+        // but the store briefly resolved to the default (e.g. before cookie fallback).
+        if (resolved === DEFAULT_PALETTE_ID && seed !== DEFAULT_PALETTE_ID) {
+          return seed;
+        }
+        return resolved;
+      });
     });
-  }, [store]);
+  }, [store, initialPaletteId]);
 
   useEffect(() => {
     const vars = paletteToStyleVars(getPalette(paletteId));

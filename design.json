@@ -1,69 +1,274 @@
 {
-    "app_name": "Orbit",
+  "app": {
+    "name": "Orbit",
+    "tagline": "Your personal relationship manager",
+    "stack_note": "Next.js App Router; Tailwind CSS; theme via CSS custom properties on <body>"
+  },
+  "typography": {
+    "font_family": {
+      "primary": "Quicksand",
+      "source": "next/font/google",
+      "subsets": [
+        "latin"
+      ],
+      "weights": [
+        400,
+        500,
+        600,
+        700
+      ],
+      "application": "Applied to <body> via className (see app/layout.tsx)"
+    },
+    "body": {
+      "antialiased": true
+    },
+    "scale_patterns": {
+      "app_title": "text-2xl or text-3xl font-bold",
+      "page_heading": "text-2xl font-bold text-[#1A3021]",
+      "section_label": "text-xs font-bold uppercase tracking-wide or tracking-wider text-[var(--color-accent)]",
+      "body": "text-sm",
+      "secondary": "text-sm italic text-[var(--color-accent)]",
+      "mono": "font-mono (e.g. technical strings in share cards)"
+    }
+  },
+  "colors": {
+    "canvas": {
+      "background": "#FDFBF7",
+      "description": "Warm off-white page background (Cozy Garden); used on main layouts"
+    },
+    "text": {
+      "primary": "#1A3021",
+      "description": "Deep forest green for primary body and headings"
+    },
+    "neutral": {
+      "gray_400": "Tailwind gray-400 — placeholders, muted secondary text, some icons",
+      "gray_200": "Tailwind gray-200 — borders on white variant inputs",
+      "white": "#FFFFFF — cards, modals, input surfaces",
+      "black_usage": "Primary text uses #1A3021, not pure black"
+    },
+    "semantic": {
+      "destructive": "red-500 — confirm delete primary action",
+      "destructive_hover": "red-400 — delete profile link hover, trash emphasis"
+    },
+    "css_custom_properties": {
+      "description": "Set on <body> from palette (server + ThemeProvider). All components use var(--color-*).",
+      "variables": [
+        {
+          "name": "--color-primary",
+          "role": "Main brand color — primary buttons, active tab fill, avatar fills, focus rings, links"
+        },
+        {
+          "name": "--color-primary-dark",
+          "role": "Darker shade for hover states on primary-tinted elements"
+        },
+        {
+          "name": "--color-primary-light",
+          "role": "Very light tint — tab rail backgrounds, input backgrounds (colored variant), dividers, skeletons"
+        },
+        {
+          "name": "--color-accent",
+          "role": "Secondary text, labels, category lines, search icon, italic hints, tag text"
+        }
+      ],
+      "defaults_in_globals_css": "Sage palette values in frontend/styles/globals.css :root; overridden at runtime"
+    },
+    "palettes": {
+      "default_id": "sage",
+      "persistence_order": [
+        "Supabase user_settings.palette_id (authenticated)",
+        "Cookie orbits_palette (client-written)",
+        "Default sage"
+      ],
+      "all": {
+        "sage": {
+          "name": "Sage",
+          "primary": "#4F6F52",
+          "primary_dark": "#3d5940",
+          "primary_light": "#f0f7f0",
+          "accent": "#86A789"
+        },
+        "ocean": {
+          "name": "Ocean",
+          "primary": "#2E6B9E",
+          "primary_dark": "#245480",
+          "primary_light": "#EAF3FB",
+          "accent": "#6BA3C8"
+        },
+        "lavender": {
+          "name": "Lavender",
+          "primary": "#6B4F8A",
+          "primary_dark": "#553D6E",
+          "primary_light": "#F2EDF8",
+          "accent": "#A98BC8"
+        },
+        "rose": {
+          "name": "Rose",
+          "primary": "#8A4F6B",
+          "primary_dark": "#6E3D55",
+          "primary_light": "#F8EDF2",
+          "accent": "#C88BAA"
+        },
+        "amber": {
+          "name": "Amber",
+          "primary": "#8A6B2E",
+          "primary_dark": "#6E5424",
+          "primary_light": "#FAF4E8",
+          "accent": "#C8A86B"
+        },
+        "slate": {
+          "name": "Slate",
+          "primary": "#4F6B7A",
+          "primary_dark": "#3D5463",
+          "primary_light": "#EDF2F5",
+          "accent": "#89A6B5"
+        }
+      }
+    }
+  },
+  "layout": {
+    "breakpoint_focus": "Single-column mobile-first; dashboard uses max-w-md mx-auto",
+    "dashboard": {
+      "main": "max-w-md mx-auto bg-[#FDFBF7] min-h-screen",
+      "header": "flex items-center justify-between px-6 py-6",
+      "content": "px-6 pb-8 space-y-6"
+    },
+    "account": {
+      "main": "min-h-screen flex items-center justify-center bg-[#FDFBF7] p-6",
+      "form_column": "w-full max-w-sm space-y-8"
+    },
+    "profile_detail": {
+      "padding": "Typically px-6; consistent horizontal gutter with dashboard"
+    }
+  },
+  "structure": {
+    "routes": {
+      "/": "Landing — name, tagline, Try now → /dashboard, Sign up → /account?mode=signup",
+      "/dashboard": "Profile list + add person",
+      "/profile/[id]": "Person detail — notes/events tabs",
+      "/account": "Auth and account management",
+      "/login": "301 → /account",
+      "/share/[id]": "Public shareable card view (where implemented)"
+    },
+    "shell": {
+      "root_layout": "html lang=en; body wraps StoreProvider → ThemeProvider → children",
+      "data": "DataStore abstraction — localStorage when logged out, Supabase when authenticated"
+    }
+  },
+  "components_and_patterns": {
+    "cards": {
+      "radius": "rounded-3xl",
+      "elevation": "shadow-sm",
+      "surface": "bg-white",
+      "dividers": "divide-y divide-[var(--color-primary-light)] inside grouped cards"
+    },
+    "pill_inputs": {
+      "component": "PillInput",
+      "shape": "rounded-full",
+      "variants": {
+        "colored": "bg-[var(--color-primary-light)], text-[#1A3021], placeholder:text-[var(--color-accent)], focus ring accent",
+        "white": "bg-white, border border-gray-200, same text/placeholder, focus ring gray-200 — search bars, add-profile on neutral ground"
+      }
+    },
+    "sliding_pill_tabs": {
+      "description": "Track: bg-[var(--color-primary-light)] rounded-full p-1; sliding thumb: absolute rounded-full bg-[var(--color-primary)] with width calc(50% - 4px), left 4px or 50%; labels z-10; active text-white, inactive text-[var(--color-primary)]; transition-all duration-200 ease-in-out",
+      "used_for": [
+        "Profile Notes/Add toggle",
+        "Account Sign In/Sign Up"
+      ]
+    },
+    "buttons": {
+      "primary_cta": "bg-[var(--color-primary)] text-white font-semibold rounded-full py-2.5 or py-3 text-sm hover:opacity-90",
+      "secondary_surface": "bg-[var(--color-primary-light)] text-[#1A3021] font-semibold rounded-full hover:opacity-80",
+      "icon_circle": "w-8 h-9 h-9 variants — rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] hover:opacity-80"
+    },
+    "avatars": {
+      "shape": "rounded-full",
+      "fill": "Initials on bg-[var(--color-primary)] text-white or skeleton bg-[var(--color-primary-light)]"
+    },
+    "lists": {
+      "profile_cards": "Swipeable row: outer rounded-3xl shadow-sm; delete zone red background revealed on swipe",
+      "notes_events": "space-y-2 or space-y-3 between items"
+    },
+    "modals": {
+      "dialog": "bg-white rounded-3xl shadow-xl p-6 max-w-sm"
+    },
+    "focus": {
+      "rings": "focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] or variant-specific (gray-200 on white inputs)"
+    },
+    "motion": {
+      "tab_thumb": "transition-all duration-200 ease-in-out",
+      "swipe_snap": "transform transition ~0.2s ease"
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "examples": [
+      "Search",
+      "ChevronRight",
+      "Trash2",
+      "Bell",
+      "Pencil",
+      "Check",
+      "X"
+    ]
+  },
+  "sample_profile_detail_mock": {
     "view": "Profile Detail",
     "data_points": {
-        "header": {
-            "name": "Sarah Chen",
-            "relationship": "Friend",
-            "action_icons": [
-                "Back",
-                "Information",
-                "Edit"
-            ]
-        },
-        "sections": [
-            {
-                "id": "notes",
-                "label": "Notes",
-                "count": 2,
-                "active": false
-            },
-            {
-                "id": "info",
-                "label": "Info",
-                "active": true
-            }
-        ],
-        "fields": [
-            {
-                "label": "Lives in",
-                "value": "Seattle"
-            },
-            {
-                "label": "Birthday",
-                "value": "March 16, 1992"
-            },
-            {
-                "label": "Work / School",
-                "value": "Tech Startup"
-            },
-            {
-                "label": "Grew up in",
-                "value": "San Francisco"
-            },
-            {
-                "label": "Hobbies",
-                "value": "Rock climbing, photography, cooking Thai food"
-            },
-            {
-                "label": "Favorite Coffee",
-                "value": "Oat milk latte with vanilla"
-            }
-        ],
-        "tags": [
-            "Birthday in Spring",
-            "Seattle Locals",
-            "Tech Startup Crew"
+      "header": {
+        "name": "Sarah Chen",
+        "relationship": "Friend",
+        "action_icons": [
+          "Back",
+          "Information",
+          "Edit"
         ]
-    },
-    "styling_notes": {
-        "font_family": "Inter or System Sans",
-        "background_color": "#FFFFFF",
-        "text_colors": {
-            "primary": "#000000",
-            "secondary": "#6B7280",
-            "accent": "#3B82F6"
+      },
+      "sections": [
+        {
+          "id": "notes",
+          "label": "Notes",
+          "count": 2,
+          "active": true
         },
-        "layout": "Vertical stack with horizontal padding. Section tabs should have a bottom border indicator for the active state."
-    }
+        {
+          "id": "add",
+          "label": "Add",
+          "active": false
+        }
+      ],
+      "fields": [
+        {
+          "label": "Lives in",
+          "value": "Seattle"
+        },
+        {
+          "label": "Birthday",
+          "value": "March 16, 1992"
+        },
+        {
+          "label": "Work / School",
+          "value": "Tech Startup"
+        },
+        {
+          "label": "Grew up in",
+          "value": "San Francisco"
+        },
+        {
+          "label": "Hobbies",
+          "value": "Rock climbing, photography, cooking Thai food"
+        },
+        {
+          "label": "Favorite Coffee",
+          "value": "Oat milk latte with vanilla"
+        }
+      ],
+      "tags": [
+        "Birthday in Spring",
+        "Seattle Locals",
+        "Tech Startup Crew"
+      ]
+    },
+    "note": "Illustrative content for design tools; actual UI uses Notes/Add tabs and dynamic data."
+  }
 }

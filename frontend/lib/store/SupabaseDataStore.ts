@@ -13,9 +13,7 @@ import type {
   CreateShareableCardInput,
 } from "./types";
 import type { Profile, Fact, Event } from "@backend/types/database";
-
-/** Default palette ID used when no user_settings row exists yet. */
-const DEFAULT_PALETTE_ID = "sage";
+import { DEFAULT_PALETTE_ID, readPaletteIdFromCookie } from "@frontend/lib/theme";
 
 /**
  * Supabase-backed DataStore implementation.
@@ -103,9 +101,11 @@ export class SupabaseDataStore implements DataStore {
     const { data } = await this.supabase
       .from("user_settings")
       .select("palette_id")
-      .single();
+      .maybeSingle();
 
-    return (data as { palette_id: string } | null)?.palette_id ?? DEFAULT_PALETTE_ID;
+    const fromDb = (data as { palette_id: string } | null)?.palette_id;
+    if (fromDb) return fromDb;
+    return readPaletteIdFromCookie() ?? DEFAULT_PALETTE_ID;
   }
 
   /** Creates a new profile for the authenticated user. */
@@ -265,11 +265,11 @@ export class SupabaseDataStore implements DataStore {
           : null;
         const friendProfile: UserProfile | null = profileRow
           ? {
-              display_name: profileRow.display_name ?? null,
-              birthday: profileRow.birthday ?? null,
-              hobbies: profileRow.hobbies ?? null,
-              bio: profileRow.bio ?? null,
-            }
+            display_name: profileRow.display_name ?? null,
+            birthday: profileRow.birthday ?? null,
+            hobbies: profileRow.hobbies ?? null,
+            bio: profileRow.bio ?? null,
+          }
           : null;
 
         return {
@@ -413,7 +413,7 @@ export class SupabaseDataStore implements DataStore {
       .eq("status", "accepted")
       .or(
         `and(requester_id.eq.${userId},receiver_id.eq.${friendId}),` +
-          `and(requester_id.eq.${friendId},receiver_id.eq.${userId})`
+        `and(requester_id.eq.${friendId},receiver_id.eq.${userId})`
       )
       .maybeSingle();
 

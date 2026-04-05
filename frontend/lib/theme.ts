@@ -68,6 +68,30 @@ export const PALETTES: Record<PaletteId, ColorPalette> = {
 
 export const DEFAULT_PALETTE_ID: PaletteId = "sage";
 
+/** Cookie name — must match LocalDataStore / SupabaseDataStore and layout cookie read. */
+export const PALETTE_COOKIE_NAME = "orbits_palette";
+
+/**
+ * Reads a validated palette id from `document.cookie` (browser only).
+ * Used so client `getPaletteId()` matches SSR when DB/localStorage is empty.
+ */
+export function readPaletteIdFromCookie(): PaletteId | null {
+  if (typeof document === "undefined") return null;
+  const prefix = `${PALETTE_COOKIE_NAME}=`;
+  for (const part of document.cookie.split("; ")) {
+    if (!part.startsWith(prefix)) continue;
+    const raw = part.slice(prefix.length);
+    let id: string;
+    try {
+      id = decodeURIComponent(raw);
+    } catch {
+      id = raw;
+    }
+    if (id in PALETTES) return id as PaletteId;
+  }
+  return null;
+}
+
 /**
  * Returns the ColorPalette for the given ID.
  * Falls back to the default palette if the ID is unrecognised.

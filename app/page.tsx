@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import LandingPage from "@frontend/components/LandingPage";
 
-/** Root route — redirect to dashboard (middleware handles auth). */
+/** Root route — marketing landing with paths into the app and account creation. */
 export default function Home() {
-  redirect("/dashboard");
+  return <LandingPage />;
 }
