@@ -66,12 +66,16 @@ export interface Event {
   event_date: string;
   notes: string | null;
   created_at: string;
+  /** Set when the owner was emailed about this upcoming event; null if not sent yet. */
+  event_reminder_email_sent_at?: string | null;
 }
 
 /** Represents a row in the `user_settings` table. */
 export interface UserSettings {
   user_id: string;
   palette_id: string;
+  /** Minutes before `event_date` to send the account owner an email reminder. */
+  event_reminder_lead_minutes?: number;
   created_at: string;
   updated_at: string;
 }

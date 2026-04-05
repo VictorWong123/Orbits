@@ -4,6 +4,10 @@ import { z } from "zod";
 import { getAuthenticatedSupabase } from "@backend/lib/auth-helpers";
 import { createClient } from "@backend/lib/supabase/server";
 import { parseOrError } from "@backend/lib/validators";
+import {
+  MAX_EVENT_REMINDER_LEAD_MINUTES,
+  MIN_EVENT_REMINDER_LEAD_MINUTES,
+} from "@backend/lib/event-reminder-constants";
 import type { UserSettings, UserProfile } from "@backend/types/database";
 
 /**
@@ -42,6 +46,37 @@ export async function updateSettings(paletteId: string): Promise<string | null> 
 
   const { error } = await supabase.from("user_settings").upsert(
     { user_id: user.id, palette_id: paletteId },
+    { onConflict: "user_id" }
+  );
+
+  return error ? error.message : null;
+}
+
+const UpdateEventReminderLeadMinutesSchema = z.object({
+  minutes: z
+    .number()
+    .int()
+    .min(MIN_EVENT_REMINDER_LEAD_MINUTES, "Lead time is too short")
+    .max(MAX_EVENT_REMINDER_LEAD_MINUTES, "Lead time is too long"),
+});
+
+/**
+ * Persists how many minutes before each event the user wants an email reminder.
+ * Upserts only `event_reminder_lead_minutes` so the palette and other settings stay unchanged.
+ */
+export async function updateEventReminderLeadMinutes(
+  minutes: number
+): Promise<string | null> {
+  const auth = await getAuthenticatedSupabase();
+  if (!auth) return "Not authenticated";
+
+  const result = parseOrError(UpdateEventReminderLeadMinutesSchema, { minutes });
+  if (typeof result === "string") return result;
+
+  const { supabase, user } = auth;
+
+  const { error } = await supabase.from("user_settings").upsert(
+    { user_id: user.id, event_reminder_lead_minutes: result.minutes },
     { onConflict: "user_id" }
   );
 

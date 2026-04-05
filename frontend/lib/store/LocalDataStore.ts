@@ -209,6 +209,7 @@ export class LocalDataStore implements DataStore {
       event_date,
       notes: notes ?? null,
       created_at: nowIso(),
+      event_reminder_email_sent_at: null,
     });
     writeJson(KEYS.events, events);
     return null;
