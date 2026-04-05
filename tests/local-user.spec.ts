@@ -6,7 +6,27 @@
  * to ensure a clean starting state.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+/**
+ * Performs a left-swipe gesture on the first matching element.
+ * Moves in small steps to fire intermediate pointermove events.
+ */
+async function swipeLeft(
+  page: Page,
+  selector: string,
+  distancePx: number
+): Promise<void> {
+  const el = page.locator(selector).first();
+  const box = await el.boundingBox();
+  if (!box) throw new Error(`No bounding box for: ${selector}`);
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX - distancePx, startY, { steps: Math.ceil(distancePx / 10) });
+  await page.mouse.up();
+}
 
 test.beforeEach(async ({ page }) => {
   // Navigate first so we have a window context to clear localStorage.
@@ -73,7 +93,7 @@ test("add a fact to a profile and see it persist after reload", async ({ page })
   await expect(page.getByText("Loves hiking")).toBeVisible();
 });
 
-test("delete a fact and confirm it is gone after reload", async ({ page }) => {
+test("delete a fact via swipe and confirm it is gone after reload", async ({ page }) => {
   await page.goto("/dashboard");
 
   await page.getByPlaceholder("Full name").fill("Charlie");
@@ -87,11 +107,15 @@ test("delete a fact and confirm it is gone after reload", async ({ page }) => {
   // .nth(1): [0]=Add tab toggle, [1]=AddFactForm submit, [2]=AddEventForm submit
   await page.getByRole("button", { name: "Add" }).nth(1).click();
 
-  // Switch to Notes tab to verify and delete.
+  // Switch to Notes tab to verify the fact appeared.
   await page.getByRole("button", { name: /Notes/ }).click();
   await expect(page.getByText("Temporary note")).toBeVisible();
 
-  await page.getByRole("button", { name: "Delete note" }).click();
+  // Swipe left on the note item past the delete threshold (70px > 65px threshold).
+  await swipeLeft(page, '[data-testid="swipe-item"]', 70);
+
+  // Confirm deletion in the dialog.
+  await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Temporary note")).not.toBeVisible();
 
   await page.reload();
@@ -134,9 +158,10 @@ test("delete a profile and redirect to dashboard", async ({ page }) => {
   await page.getByText("TempPerson").click();
   await page.waitForURL(/\/profile\//);
 
-  // Confirm the delete dialog.
-  page.on("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: /Delete/i }).click();
+  // Click the "Delete person" button in the profile header to open the dialog.
+  await page.getByRole("button", { name: "Delete person" }).click();
+  // Confirm the styled ConfirmDialog (not a native browser dialog).
+  await page.getByRole("button", { name: "Delete" }).click();
 
   await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByText("TempPerson")).not.toBeVisible();

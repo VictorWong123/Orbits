@@ -82,6 +82,8 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
             className="flex-1 py-2.5 rounded-full bg-red-500 text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {isPending ? "Deleting…" : confirmLabel}

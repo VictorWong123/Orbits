@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Bell, Pencil, Check, X } from "lucide-react";
 import AddFactForm from "@frontend/components/AddFactForm";
 import AddEventForm from "@frontend/components/AddEventForm";
-import DeleteButton from "@frontend/components/ui/DeleteButton";
+import SwipeToDelete from "@frontend/components/ui/SwipeToDelete";
 import InfoField from "@frontend/components/ui/InfoField";
 import FormError from "@frontend/components/ui/FormError";
 import SendReminderModal from "@frontend/components/SendReminderModal";
@@ -165,24 +165,26 @@ export default function ProfileTabs({ profile, facts, events, onMutate }: Props)
           {visibleFacts.length > 0 ? (
             <ul className="space-y-2">
               {visibleFacts.map((fact) => (
-                <li
-                  key={fact.id}
-                  className="flex items-start justify-between gap-3 bg-white rounded-3xl px-4 py-4 shadow-sm"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#1A3021]">
-                      {fact.content}
-                    </p>
-                    {fact.category && fact.category !== "general" && (
-                      <p className="text-xs text-[var(--color-accent)] mt-1 italic">
-                        {fact.category}
-                      </p>
-                    )}
-                  </div>
-                  <DeleteButton
+                <li key={fact.id} className="overflow-hidden rounded-3xl shadow-sm">
+                  <SwipeToDelete
                     onDelete={() => handleDeleteFact(fact.id)}
-                    ariaLabel="Delete note"
-                  />
+                    confirmTitle="Delete note?"
+                    confirmMessage="This note will be permanently deleted. This cannot be undone."
+                    confirmLabel="Delete"
+                  >
+                    <div className="flex items-start gap-3 bg-white px-4 py-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#1A3021]">
+                          {fact.content}
+                        </p>
+                        {fact.category && fact.category !== "general" && (
+                          <p className="text-xs text-[var(--color-accent)] mt-1 italic">
+                            {fact.category}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </SwipeToDelete>
                 </li>
               ))}
             </ul>
@@ -200,42 +202,42 @@ export default function ProfileTabs({ profile, facts, events, onMutate }: Props)
             {visibleEvents.length > 0 ? (
               <ul className="space-y-2">
                 {visibleEvents.map((event) => (
-                  <li
-                    key={event.id}
-                    className="flex items-start justify-between gap-3 bg-white rounded-3xl px-5 py-4 shadow-sm"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-[#1A3021]">
-                        {event.title}
-                      </p>
-                      <p className="text-xs italic text-[var(--color-accent)] mt-0.5">
-                        {formatEventDate(event.event_date)}
-                      </p>
-                      {event.notes && (
-                        <p className="text-sm text-[var(--color-primary)] mt-1">
-                          {event.notes}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {isAuthenticated && (
-                        <button
-                          type="button"
-                          aria-label="Send reminder"
-                          onClick={() => {
-                            setReminderEventId(event.id);
-                            setReminderEventTitle(event.title);
-                          }}
-                          className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--color-accent)] hover:bg-[var(--color-primary-light)] transition-colors"
-                        >
-                          <Bell size={15} />
-                        </button>
-                      )}
-                      <DeleteButton
-                        onDelete={() => handleDeleteEvent(event.id)}
-                        ariaLabel="Delete event"
-                      />
-                    </div>
+                  <li key={event.id} className="overflow-hidden rounded-3xl shadow-sm">
+                    <SwipeToDelete
+                      onDelete={() => handleDeleteEvent(event.id)}
+                      confirmTitle="Delete event?"
+                      confirmMessage="This event will be permanently deleted. This cannot be undone."
+                      confirmLabel="Delete"
+                    >
+                      <div className="flex items-start justify-between gap-3 bg-white px-5 py-4">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-[#1A3021]">
+                            {event.title}
+                          </p>
+                          <p className="text-xs italic text-[var(--color-accent)] mt-0.5">
+                            {formatEventDate(event.event_date)}
+                          </p>
+                          {event.notes && (
+                            <p className="text-sm text-[var(--color-primary)] mt-1">
+                              {event.notes}
+                            </p>
+                          )}
+                        </div>
+                        {isAuthenticated && (
+                          <button
+                            type="button"
+                            aria-label="Send reminder"
+                            onClick={() => {
+                              setReminderEventId(event.id);
+                              setReminderEventTitle(event.title);
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--color-accent)] hover:bg-[var(--color-primary-light)] transition-colors shrink-0"
+                          >
+                            <Bell size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </SwipeToDelete>
                   </li>
                 ))}
               </ul>
