@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ChevronRight } from "lucide-react";
+import { Search, ChevronRight, Star } from "lucide-react";
 import { getInitials, relativeTime } from "@frontend/lib/formatters";
 import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import PillInput from "@frontend/components/ui/PillInput";
@@ -16,7 +16,9 @@ interface ProfileWithFacts {
   id: string;
   full_name: string;
   birthday: string | null;
+  is_favorite: boolean;
   created_at: string;
+  updated_at: string;
   facts: ProfileFact[];
 }
 
@@ -145,9 +147,14 @@ function ProfileCard({ profile, tags, onDelete }: CardProps) {
 
           {/* Name + tags + timestamp */}
           <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-[#1A3021] leading-tight">
-              {profile.full_name}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-base font-semibold text-[#1A3021] leading-tight truncate">
+                {profile.full_name}
+              </p>
+              {profile.is_favorite && (
+                <Star size={14} className="text-[var(--color-accent)] shrink-0" fill="currentColor" />
+              )}
+            </div>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               {visibleTag && (
                 <span className="inline-flex items-center px-2.5 py-0.5 bg-[var(--color-accent)] text-white text-xs font-semibold rounded-full">
@@ -160,7 +167,7 @@ function ProfileCard({ profile, tags, onDelete }: CardProps) {
                 </span>
               )}
               <span className="text-xs italic text-[var(--color-accent)]">
-                Last edit {relativeTime(profile.created_at)}
+                Last updated: {relativeTime(profile.updated_at)}
               </span>
             </div>
           </div>

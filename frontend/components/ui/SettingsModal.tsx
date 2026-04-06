@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState, useTransition, useEffect, useRef } from "react";
+import { X, Camera, Trash2 } from "lucide-react";
 import { PALETTES, type PaletteId } from "@frontend/lib/theme";
 import { useTheme } from "@frontend/components/ui/ThemeProvider";
 import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import PaletteSwatch from "@frontend/components/ui/PaletteSwatch";
 import FormError from "@frontend/components/ui/FormError";
-import { getSettings, updateEventReminderLeadMinutes } from "@backend/actions/settings";
+import {
+  getSettings,
+  updateEventReminderLeadMinutes,
+  uploadUserAvatar,
+  deleteUserAvatar,
+} from "@backend/actions/settings";
 import {
   DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
   EVENT_REMINDER_AMOUNT_INPUT_MAX_LENGTH,
@@ -18,6 +23,7 @@ import {
   maxLeadAmountForUnit,
   type EventReminderLeadUnit,
 } from "@frontend/lib/eventReminderLead";
+import { getEmailInitials } from "@frontend/lib/formatters";
 
 interface Props {
   isOpen: boolean;
@@ -32,14 +38,16 @@ const defaultLeadDisplay = minutesToLeadDisplay(DEFAULT_EVENT_REMINDER_LEAD_MINU
  */
 export default function SettingsModal({ isOpen, onClose }: Props) {
   const { paletteId, setPaletteId } = useTheme();
-  const { store, isAuthenticated } = useDataStore();
+  const { store, isAuthenticated, avatarUrl, refreshAvatar, userEmail } = useDataStore();
   const [selected, setSelected] = useState<PaletteId>(paletteId);
   const [reminderAmount, setReminderAmount] = useState(defaultLeadDisplay.amount);
   const [reminderUnit, setReminderUnit] = useState<EventReminderLeadUnit>(
     defaultLeadDisplay.unit
   );
   const [isPending, startTransition] = useTransition();
+  const [isAvatarPending, startAvatarTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /** When the modal opens, sync the palette from context and load reminder prefs from the server. */
   useEffect(() => {
@@ -67,6 +75,62 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
   }, [isOpen, isAuthenticated]);
 
   if (!isOpen) return null;
+
+  /** Handles avatar file selection — validates client-side then uploads. */
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setError("File too large — keep it under 2 MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!ALLOWED.includes(file.type)) {
+      setError("File must be JPEG, PNG, WebP, or GIF.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setError(null);
+    startAvatarTransition(async () => {
+      try {
+        const fd = new FormData();
+        fd.append("avatar", file);
+        const err = await uploadUserAvatar(fd);
+        if (err) {
+          setError(err);
+        } else {
+          refreshAvatar();
+        }
+      } catch {
+        setError("Upload failed — try a smaller file.");
+      }
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  /** Removes the user's avatar image. */
+  function handleRemoveAvatar() {
+    setError(null);
+    startAvatarTransition(async () => {
+      try {
+        const err = await deleteUserAvatar();
+        if (err) {
+          setError(err);
+        } else {
+          refreshAvatar();
+        }
+      } catch {
+        setError("Failed to remove avatar.");
+      }
+    });
+  }
+
+  const initials = userEmail ? getEmailInitials(userEmail) : "?";
 
   /** Closes the modal when clicking the semi-transparent backdrop. */
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -132,6 +196,61 @@ export default function SettingsModal({ isOpen, onClose }: Props) {
             <X size={14} className="text-gray-400" />
           </button>
         </div>
+
+        {/* Avatar section (authenticated only) */}
+        {isAuthenticated && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avatar</p>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Your avatar"
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-[var(--color-accent)] flex items-center justify-center">
+                    <span className="text-lg font-bold text-white">{initials}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAvatarPending}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center shadow-md hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50"
+                  aria-label="Upload avatar"
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
+              <div className="flex-1 space-y-1">
+                <p className="text-xs text-gray-400">
+                  {isAvatarPending ? "Uploading…" : "JPEG, PNG, WebP, or GIF. Max 2 MB."}
+                </p>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    disabled={isAvatarPending}
+                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={12} />
+                    Remove photo
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleAvatarChange}
+                className="hidden"
+                aria-label="Choose avatar file"
+              />
+            </div>
+          </div>
+        )}
 
         {/* App color section */}
         <div className="space-y-3">

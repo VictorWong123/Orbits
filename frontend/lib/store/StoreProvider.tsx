@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -35,6 +36,10 @@ interface StoreContextValue {
    * signed in, or undefined while the initial session check is in-flight.
    */
   userId: string | null | undefined;
+  /** Public URL of the user's uploaded avatar image, or null when not set. */
+  avatarUrl: string | null;
+  /** Refreshes the avatarUrl from the store (call after upload/delete). */
+  refreshAvatar: () => void;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -69,6 +74,7 @@ interface Props {
 export function StoreProvider({ children }: Props) {
   const [userEmail, setUserEmail] = useState<string | null | undefined>(undefined);
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [migrationPending, setMigrationPending] = useState(false);
   const [localProfileCount, setLocalProfileCount] = useState(0);
 
@@ -126,8 +132,23 @@ export function StoreProvider({ children }: Props) {
     [isAuthenticated]
   );
 
+  /** Fetches the user's avatar URL from their profile and updates state. */
+  const refreshAvatar = useCallback(() => {
+    store.getMyProfile().then((profile) => {
+      setAvatarUrl(profile?.avatar_url ?? null);
+    });
+  }, [store]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setAvatarUrl(null);
+      return;
+    }
+    refreshAvatar();
+  }, [isAuthenticated, refreshAvatar]);
+
   return (
-    <StoreContext.Provider value={{ store, isAuthenticated, userEmail, userId }}>
+    <StoreContext.Provider value={{ store, isAuthenticated, userEmail, userId, avatarUrl, refreshAvatar }}>
       {children}
       {migrationPending && (
         <MigrationModal

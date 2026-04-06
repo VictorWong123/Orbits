@@ -46,3 +46,7 @@ test_file
 # Playwright screenshots
 screenshots/
 
+# Test results
+test-results/
+
+.playwright-mcp/

@@ -50,11 +50,12 @@ export class SupabaseDataStore implements DataStore {
     return this.cachedUserId;
   }
 
-  /** Returns all profiles for the authenticated user, sorted by name ascending. */
+  /** Returns all profiles for the authenticated user, favorites first then A-Z. */
   async getProfiles(): Promise<ProfileSummary[]> {
     const { data, error } = await this.supabase
       .from("profiles")
       .select("*, facts(category)")
+      .order("is_favorite", { ascending: false })
       .order("full_name", { ascending: true });
 
     if (error) throw new Error(error.message);
@@ -231,6 +232,32 @@ export class SupabaseDataStore implements DataStore {
   }
 
   /**
+   * Toggles the is_favorite flag on a profile.
+   * Reads the current value and flips it. RLS enforces ownership.
+   */
+  async toggleFavorite(profileId: string): Promise<string | null> {
+    const userId = await this.getUserId();
+    if (!userId) return "Not authenticated";
+
+    const { data } = await this.supabase
+      .from("profiles")
+      .select("is_favorite")
+      .eq("id", profileId)
+      .eq("user_id", userId)
+      .single();
+
+    if (!data) return "Profile not found";
+
+    const { error } = await this.supabase
+      .from("profiles")
+      .update({ is_favorite: !data.is_favorite })
+      .eq("id", profileId)
+      .eq("user_id", userId);
+
+    return error?.message ?? null;
+  }
+
+  /**
    * Upserts the user's palette preference and writes the `orbits_palette`
    * cookie so the server-rendered layout can apply the correct theme on the
    * next full page load without a FOUC.
@@ -287,6 +314,7 @@ export class SupabaseDataStore implements DataStore {
             birthday: profileRow.birthday ?? null,
             hobbies: profileRow.hobbies ?? null,
             bio: profileRow.bio ?? null,
+            avatar_url: profileRow.avatar_url ?? null,
           }
           : null;
 
@@ -483,7 +511,7 @@ export class SupabaseDataStore implements DataStore {
 
     const { data } = await this.supabase
       .from("user_profiles")
-      .select("display_name, birthday, hobbies, bio")
+      .select("display_name, birthday, hobbies, bio, avatar_url")
       .eq("user_id", userId)
       .single();
 
@@ -494,6 +522,7 @@ export class SupabaseDataStore implements DataStore {
       birthday: data.birthday ?? null,
       hobbies: data.hobbies ?? null,
       bio: data.bio ?? null,
+      avatar_url: data.avatar_url ?? null,
     };
   }
 

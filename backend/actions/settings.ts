@@ -8,7 +8,12 @@ import {
   MAX_EVENT_REMINDER_LEAD_MINUTES,
   MIN_EVENT_REMINDER_LEAD_MINUTES,
 } from "@backend/lib/event-reminder-constants";
+import { SUPABASE_URL } from "@backend/lib/supabase/config";
 import type { UserSettings, UserProfile } from "@backend/types/database";
+
+const AVATAR_BUCKET = "Avatars";
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 /**
  * Fetches the settings row for the currently authenticated user.
@@ -161,6 +166,81 @@ export async function updateUserProfile(
     },
     { onConflict: "user_id" }
   );
+
+  return error ? error.message : null;
+}
+
+/**
+ * Constructs the public URL for a file stored in a Supabase Storage bucket.
+ */
+function publicStorageUrl(bucket: string, path: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+/**
+ * Uploads an avatar image to Supabase Storage and persists the public URL
+ * in `user_profiles.avatar_url`.
+ *
+ * Validates file type (JPEG, PNG, WebP, GIF) and size (max 2 MB).
+ * Overwrites any existing avatar for the same user.
+ *
+ * @returns null on success, or an error string on failure.
+ */
+export async function uploadUserAvatar(formData: FormData): Promise<string | null> {
+  const auth = await getAuthenticatedSupabase();
+  if (!auth) return "Not authenticated";
+
+  const { supabase, user } = auth;
+
+  const file = formData.get("avatar") as File | null;
+  if (!file || file.size === 0) return "No file provided";
+  if (!ALLOWED_AVATAR_TYPES.includes(file.type)) return "File must be JPEG, PNG, WebP, or GIF";
+  if (file.size > MAX_AVATAR_SIZE_BYTES) return "File must be under 2 MB";
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const storagePath = `${user.id}/avatar.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(storagePath, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) return uploadError.message;
+
+  const avatarUrl = publicStorageUrl(AVATAR_BUCKET, storagePath);
+
+  const { error: dbError } = await supabase.from("user_profiles").upsert(
+    { user_id: user.id, avatar_url: avatarUrl },
+    { onConflict: "user_id" }
+  );
+
+  return dbError ? dbError.message : null;
+}
+
+/**
+ * Removes the user's avatar image from Supabase Storage and clears the
+ * `avatar_url` column in `user_profiles`.
+ *
+ * @returns null on success, or an error string on failure.
+ */
+export async function deleteUserAvatar(): Promise<string | null> {
+  const auth = await getAuthenticatedSupabase();
+  if (!auth) return "Not authenticated";
+
+  const { supabase, user } = auth;
+
+  const { data: files } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .list(user.id);
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => `${user.id}/${f.name}`);
+    await supabase.storage.from(AVATAR_BUCKET).remove(paths);
+  }
+
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({ avatar_url: null })
+    .eq("user_id", user.id);
 
   return error ? error.message : null;
 }

@@ -24,6 +24,8 @@ export interface UserProfile {
   birthday: string | null;
   hobbies: string | null;
   bio: string | null;
+  /** Public URL of the user's uploaded avatar image, or null. */
+  avatar_url: string | null;
 }
 
 /** Input shape for upserting the current user's own profile. */
@@ -42,7 +44,9 @@ export interface ProfileSummary {
   id: string;
   full_name: string;
   birthday: string | null;
+  is_favorite: boolean;
   created_at: string;
+  updated_at: string;
   facts: { category: string }[];
 }
 
@@ -126,6 +130,12 @@ export interface DataStore {
    * Returns null on success, or an error string on failure.
    */
   updateBirthday(profileId: string, birthday: string | null): Promise<string | null>;
+
+  /**
+   * Toggles the is_favorite flag on a profile.
+   * Returns null on success, or an error string on failure.
+   */
+  toggleFavorite(profileId: string): Promise<string | null>;
 
   // ── User Profile ─────────────────────────────────────────────────────────
 

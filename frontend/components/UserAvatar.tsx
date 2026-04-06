@@ -20,7 +20,7 @@ import SettingsModal from "@frontend/components/ui/SettingsModal";
  * The dropdown closes automatically when clicking outside of it.
  */
 export default function UserAvatar() {
-  const { userEmail, isAuthenticated, userId } = useDataStore();
+  const { userEmail, isAuthenticated, userId, avatarUrl } = useDataStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
@@ -66,16 +66,19 @@ export default function UserAvatar() {
   return (
     <>
       <div ref={dropdownRef} className="relative">
-        {/* Initials avatar */}
         <button
           type="button"
           onClick={() => setDropdownOpen((open) => !open)}
           aria-label="Account menu"
           aria-expanded={dropdownOpen}
           aria-haspopup="true"
-          className="w-9 h-9 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-sm font-bold text-white hover:opacity-90 transition-opacity select-none"
+          className="w-9 h-9 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-sm font-bold text-white hover:opacity-90 transition-opacity select-none overflow-hidden"
         >
-          {initials}
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Your avatar" className="w-full h-full object-cover" />
+          ) : (
+            initials
+          )}
         </button>
 
         {/* Dropdown */}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Star } from "lucide-react";
 import { useDataStore } from "@frontend/lib/store/StoreProvider";
 import ProfileTabs from "@frontend/components/ProfileTabs";
 import DeleteProfileButton from "@frontend/components/ui/DeleteProfileButton";
@@ -72,6 +72,7 @@ export default function ProfileClient({
   const [facts, setFacts] = useState<Fact[]>(initialFacts ?? []);
   const [events, setEvents] = useState<Event[]>(initialEvents ?? []);
   const [isLoading, setIsLoading] = useState(!hasInitialData);
+  const [isFavorite, setIsFavorite] = useState(initialProfile?.is_favorite ?? false);
 
   /** Fetches profile + facts + events in parallel. */
   const loadAll = useCallback(async () => {
@@ -89,6 +90,7 @@ export default function ProfileClient({
     setProfile(p);
     setFacts(f);
     setEvents(e);
+    setIsFavorite(p.is_favorite);
     setIsLoading(false);
   }, [store, profileId, router]);
 
@@ -104,6 +106,13 @@ export default function ProfileClient({
     setIsLoading(true);
     loadAll();
   }, [loadAll, userEmail]);
+
+  /** Optimistically toggles the favorite flag then persists to the store. */
+  async function handleToggleFavorite() {
+    setIsFavorite((prev) => !prev);
+    const err = await store.toggleFavorite(profileId);
+    if (err) setIsFavorite((prev) => !prev);
+  }
 
   /** Deletes the profile via the store and navigates back to the dashboard. */
   async function handleDeleteProfile(): Promise<string> {
@@ -128,6 +137,18 @@ export default function ProfileClient({
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-[#1A3021] truncate">{profile.full_name}</h1>
         </div>
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--color-primary-light)] transition-colors shrink-0"
+        >
+          <Star
+            size={20}
+            className="text-[var(--color-accent)]"
+            fill={isFavorite ? "currentColor" : "none"}
+          />
+        </button>
         <DeleteProfileButton
           profileName={profile.full_name}
           action={handleDeleteProfile}

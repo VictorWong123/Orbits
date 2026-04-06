@@ -27,7 +27,9 @@ export interface Profile {
   full_name: string;
   birthday: string | null;
   avatar_url: string | null;
+  is_favorite: boolean;
   created_at: string;
+  updated_at: string;
   /** JSON snapshot of the shareable card this profile was imported from, or null. */
   imported_data: ImportedCardData | null;
 }
@@ -88,6 +90,8 @@ export interface UserProfile {
   birthday: string | null;
   hobbies: string | null;
   bio: string | null;
+  /** Public URL of the user's uploaded avatar image, or null. */
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }

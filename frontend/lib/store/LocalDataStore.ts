@@ -78,7 +78,17 @@ function nowIso(): string {
  * Supabase can bulk-replace it with the real user UUID.
  */
 export class LocalDataStore implements DataStore {
-  /** Returns all profiles joined with their fact category tags, sorted A→Z. */
+  /** Sets updated_at to now on the given profile in localStorage. */
+  private touchProfile(profileId: string): void {
+    const profiles = readJson<Profile[]>(KEYS.profiles, []);
+    const idx = profiles.findIndex((p) => p.id === profileId);
+    if (idx !== -1) {
+      profiles[idx] = { ...profiles[idx], updated_at: nowIso() };
+      writeJson(KEYS.profiles, profiles);
+    }
+  }
+
+  /** Returns all profiles joined with their fact category tags, favorites first then A-Z. */
   async getProfiles(): Promise<ProfileSummary[]> {
     const profiles = readJson<Profile[]>(KEYS.profiles, []);
     const facts = readJson<Fact[]>(KEYS.facts, []);
@@ -86,17 +96,28 @@ export class LocalDataStore implements DataStore {
     return profiles
       .map((p) => ({
         ...p,
+        is_favorite: p.is_favorite ?? false,
+        updated_at: p.updated_at ?? p.created_at,
         facts: facts
           .filter((f) => f.profile_id === p.id)
           .map((f) => ({ category: f.category })),
       }))
-      .sort((a, b) => a.full_name.localeCompare(b.full_name));
+      .sort((a, b) => {
+        if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1;
+        return a.full_name.localeCompare(b.full_name);
+      });
   }
 
   /** Returns a single profile by ID, or null if not found. */
   async getProfile(id: string): Promise<Profile | null> {
     const profiles = readJson<Profile[]>(KEYS.profiles, []);
-    return profiles.find((p) => p.id === id) ?? null;
+    const p = profiles.find((p) => p.id === id);
+    if (!p) return null;
+    return {
+      ...p,
+      is_favorite: p.is_favorite ?? false,
+      updated_at: p.updated_at ?? p.created_at,
+    };
   }
 
   /** Returns all facts for a profile, ordered newest-first. */
@@ -127,6 +148,7 @@ export class LocalDataStore implements DataStore {
     const trimmed = full_name.trim();
     if (!trimmed) return "Name is required";
 
+    const now = nowIso();
     const profiles = readJson<Profile[]>(KEYS.profiles, []);
     profiles.push({
       id: newId(),
@@ -134,7 +156,9 @@ export class LocalDataStore implements DataStore {
       full_name: trimmed,
       birthday: birthday ?? null,
       avatar_url: null,
-      created_at: nowIso(),
+      is_favorite: false,
+      created_at: now,
+      updated_at: now,
       imported_data: null,
     });
     writeJson(KEYS.profiles, profiles);
@@ -176,15 +200,17 @@ export class LocalDataStore implements DataStore {
       created_at: nowIso(),
     });
     writeJson(KEYS.facts, facts);
+    this.touchProfile(profile_id);
     return null;
   }
 
-  /** Deletes a fact by ID. */
-  async deleteFact(factId: string, _profileId: string): Promise<string | null> {
+  /** Deletes a fact by ID and touches the parent profile. */
+  async deleteFact(factId: string, profileId: string): Promise<string | null> {
     writeJson(
       KEYS.facts,
       readJson<Fact[]>(KEYS.facts, []).filter((f) => f.id !== factId)
     );
+    this.touchProfile(profileId);
     return null;
   }
 
@@ -212,15 +238,17 @@ export class LocalDataStore implements DataStore {
       event_reminder_email_sent_at: null,
     });
     writeJson(KEYS.events, events);
+    this.touchProfile(profile_id);
     return null;
   }
 
-  /** Deletes an event by ID. */
-  async deleteEvent(eventId: string, _profileId: string): Promise<string | null> {
+  /** Deletes an event by ID and touches the parent profile. */
+  async deleteEvent(eventId: string, profileId: string): Promise<string | null> {
     writeJson(
       KEYS.events,
       readJson<Event[]>(KEYS.events, []).filter((e) => e.id !== eventId)
     );
+    this.touchProfile(profileId);
     return null;
   }
 
@@ -235,7 +263,20 @@ export class LocalDataStore implements DataStore {
     const profiles = readJson<Profile[]>(KEYS.profiles, []);
     const idx = profiles.findIndex((p) => p.id === profileId);
     if (idx === -1) return "Profile not found";
-    profiles[idx] = { ...profiles[idx], birthday };
+    profiles[idx] = { ...profiles[idx], birthday, updated_at: nowIso() };
+    writeJson(KEYS.profiles, profiles);
+    return null;
+  }
+
+  /** Toggles the is_favorite flag on a locally-stored profile. */
+  async toggleFavorite(profileId: string): Promise<string | null> {
+    const profiles = readJson<Profile[]>(KEYS.profiles, []);
+    const idx = profiles.findIndex((p) => p.id === profileId);
+    if (idx === -1) return "Profile not found";
+    profiles[idx] = {
+      ...profiles[idx],
+      is_favorite: !(profiles[idx].is_favorite ?? false),
+    };
     writeJson(KEYS.profiles, profiles);
     return null;
   }
@@ -253,7 +294,7 @@ export class LocalDataStore implements DataStore {
 
   // ── User Profile stubs ───────────────────────────────────────────────────
 
-  /** Returns null — user profiles require authentication. */
+  /** Returns null — user profiles (and avatar) require authentication. */
   async getMyProfile(): Promise<UserProfile | null> {
     return null;
   }
