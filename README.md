@@ -4,13 +4,16 @@ Orbit is a private "digital brain" for keeping track of the people in your life.
 
 ## Features
 
-- **People dashboard** — add and browse everyone in your orbit
+- **People dashboard** — add and browse everyone in your orbit; pin favourites to the top
 - **Profile pages** — per-person view with facts and upcoming events
+- **User profiles** — set your own display name, birthday, bio, hobbies, and avatar
 - **Facts** — categorised free-form notes (e.g. food, work, hobby)
 - **Events** — date/time entries with optional notes
+- **Event email reminders** — configurable lead-time; a daily Vercel cron job sends SMTP emails for upcoming events
 - **Friends** — add other Orbit users as friends by email or short code; view their profile info
 - **Reminders** — send event-based reminders to accepted friends
 - **Shareable cards** — create personal profile cards with contact info, hobbies, and custom fields; share via link or QR code; recipients can import the card into their own dashboard
+- **Swipe to delete** — swipe facts and events to delete on mobile
 - **Theme customisation** — six color palettes (sage, ocean, lavender, rose, amber, slate) persisted to DB, cookie, or localStorage
 - **Local-first mode** — works without authentication; all data stored in localStorage
 - **Data migration** — migrate local data to Supabase when you create an account
@@ -24,12 +27,14 @@ Orbit is a private "digital brain" for keeping track of the people in your life.
 | Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
 | UI | React 19 |
-| Database & Auth | Supabase (PostgreSQL + Auth) |
+| Database & Auth | Supabase (PostgreSQL + Auth + Storage) |
 | Validation | Zod |
 | Styling | Tailwind CSS |
 | Icons | Lucide React |
+| Email | Nodemailer (SMTP) |
 | QR Codes | react-qr-code |
 | Calendar | react-day-picker |
+| Unit Testing | Vitest |
 | E2E Testing | Playwright |
 
 ## Project Structure
@@ -44,6 +49,9 @@ app/
   login/                  # Legacy route — 301 redirects to /account
   profile/[id]/           # Profile detail: facts + events
   share/[id]/             # Public shareable card view + import
+  api/
+    cron/
+      event-email-reminders/  # Secured cron endpoint for sending reminder emails
 
 backend/
   actions/
@@ -52,7 +60,7 @@ backend/
     profiles.ts           # createProfile, deleteProfile
     facts.ts              # createFact, deleteFact
     events.ts             # createEvent, deleteEvent
-    settings.ts           # getSettings, updateSettings
+    settings.ts           # getSettings, updateSettings, avatar upload, user profile
     migration.ts          # migrateLocalData (local→Supabase sync)
     friends.ts            # sendFriendRequest, acceptFriendRequest, removeFriend, etc.
     reminders.ts          # sendReminder, getReminders, markReminderRead, etc.
@@ -61,9 +69,15 @@ backend/
     supabase/
       config.ts           # SUPABASE_URL & SUPABASE_ANON_KEY constants
       server.ts           # createClient() for Server Components/Actions
+      service-role.ts     # createServiceRoleClient() for cron jobs (bypasses RLS)
+    email/
+      smtp-event-reminder.ts  # Sends reminder emails via Nodemailer SMTP
     auth-helpers.ts       # getAuthenticatedSupabase() — shared auth check
     validators.ts         # parseOrError() — Zod safeParse wrapper
     cache.ts              # invalidateProfileCache(), invalidateDashboardCache()
+    event-reminder-constants.ts    # Min/max lead-time constants
+    event-reminder-eligibility.ts  # Determines which events need a reminder
+    process-event-email-reminders.ts  # Cron job logic: query + send
   types/
     database.ts           # Profile, Fact, Event, UserSettings, ShareableCard interfaces
 
@@ -81,17 +95,19 @@ frontend/
     AddByCardForm.tsx     # Add a person by pasting a share link
     FriendsManager.tsx    # Friend list, pending requests, accept/reject
     ImportCardForm.tsx    # Import a shared card into your dashboard
+    LandingPage.tsx       # Marketing / landing page for unauthenticated visitors
     ProfileTabs.tsx       # Notes / Info tabs; optimistic delete for facts/events
     ProfileList.tsx       # Searchable, card-based list with initials avatars
     ReminderDropdown.tsx  # Reminder notification dropdown
     SendReminderModal.tsx # Send a reminder to a friend
     ShareableCardsManager.tsx  # Create, edit, share profile cards + QR codes
     UserAvatar.tsx        # Avatar dropdown (settings, sign-out, create account)
-    UserProfileForm.tsx   # Edit personal profile (display name, bio, etc.)
+    UserProfileForm.tsx   # Edit personal profile (display name, bio, avatar)
     ui/
       PillInput.tsx       # Reusable pill-shaped text input
       DateTimePicker.tsx  # Calendar + time input (react-day-picker)
       FormError.tsx       # Error message display
+      SwipeToDelete.tsx   # Swipe-to-delete gesture wrapper (mobile)
       ThemeProvider.tsx   # Context: manages palette ID, syncs CSS vars to <html>
       SettingsModal.tsx   # Palette color-picker modal
       MigrationModal.tsx  # Local→Supabase migration offer after sign-in
@@ -119,9 +135,13 @@ frontend/
     useStoreAction.ts     # Wraps useTransition for DataStore mutations
     useOutsideClick.ts    # Closes dropdowns/modals on outside click
 
+scripts/
+  test-event-reminders.mjs  # Manual test script for the cron endpoint
+
 middleware.ts             # Session refresh + legacy /login → /account redirect
 tailwind.config.ts        # CSS custom property color tokens
-tests/                    # Playwright E2E specs
+vercel.json               # Vercel cron schedule (daily at 09:00 UTC)
+tests/                    # Playwright E2E specs + Vitest unit tests
 ```
 
 Path aliases: `@/*` → root, `@backend/*` → `./backend/*`, `@frontend/*` → `./frontend/*`
@@ -199,12 +219,34 @@ Then run the following migrations in order (**all are required** — the app wil
 | 3 | `supabase/migrations/003_shareable_cards.sql` | Shareable profile cards + imported_data column |
 | 4 | `supabase/migrations/004_custom_fields.sql` | Custom fields on shareable cards |
 | 5 | `supabase/migrations/friends_reminders.sql` | Friendships, reminders, email/UUID lookup RPCs |
+| 6 | `supabase/migrations/005_event_email_reminders.sql` | Event reminder lead-time setting + sent-at tracking |
+| 7 | `supabase/migrations/006_user_avatar.sql` | Avatar URL column on user_profiles |
+| 8 | `supabase/migrations/007_profile_updated_at.sql` | `updated_at` column + child-touch triggers |
+| 9 | `supabase/migrations/008_profile_favorites.sql` | `is_favorite` column on profiles |
 
 Paste the full contents of each file into the SQL Editor and run them sequentially.
 
+#### Supabase Storage bucket (avatars)
+
+After running migration 006 you also need to create a storage bucket:
+
+1. In the Supabase dashboard go to **Storage** → **New bucket**.
+2. Create a **public** bucket named `Avatars`.
+3. Add the following RLS policies on the bucket:
+   - **INSERT**: `auth.uid()::text = (storage.foldername(name))[1]`
+   - **UPDATE**: `auth.uid()::text = (storage.foldername(name))[1]`
+   - **DELETE**: `auth.uid()::text = (storage.foldername(name))[1]`
+   - **SELECT**: `true` (public read)
+
 ### 3. Configure environment variables
 
-Create a `.env.local` file at the project root:
+Copy the example file and fill in your values:
+
+```bash
+cp .env.local.example .env.local
+```
+
+See `.env.local.example` for the full list with descriptions. The two required variables are:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
@@ -212,6 +254,18 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 ```
 
 Both values are available in your Supabase project under **Project Settings → API**.
+
+To enable **event email reminders** you also need:
+
+| Variable | Where to find it |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` key |
+| `CRON_SECRET` | Any strong random string (used to secure the `/api/cron/event-email-reminders` endpoint) |
+| `EMAIL_SMTP_HOST` | Your SMTP provider (e.g. `smtp.gmail.com`) |
+| `EMAIL_SMTP_USER` | SMTP login / email address |
+| `EMAIL_SMTP_PASS` | SMTP password or app-specific password |
+
+See `.env.local.example` for optional overrides (`EMAIL_FROM`, `EMAIL_SMTP_PORT`).
 
 ### 4. Start the development server
 
@@ -224,18 +278,32 @@ Open [http://localhost:3000](http://localhost:3000). You will be redirected to `
 ## Available Scripts
 
 ```bash
-npm run dev      # Development server with hot reload
-npm run build    # Production build
-npm run start    # Run production build locally
-npm run lint     # ESLint
+npm run dev                # Development server with hot reload
+npm run build              # Production build
+npm run start              # Run production build locally
+npm run lint               # ESLint
+npm run test               # Vitest unit tests
+npm run test:reminders     # Manually fire the event-reminder cron endpoint
+npm run test:reminders:seed  # Seed test data then fire the cron
 ```
 
 ## Testing
 
+### Unit tests
+
+Unit tests use [Vitest](https://vitest.dev/) and live in `tests/unit/`.
+
+```bash
+npm run test                     # Run all unit tests
+```
+
+### E2E tests
+
 E2E tests use [Playwright](https://playwright.dev/) and live in the `tests/` directory.
 
 ```bash
-npx playwright test              # Run all tests
+npx playwright install           # Install browsers (first time only)
+npx playwright test              # Run all E2E tests
 npx playwright test --ui         # Interactive UI mode
 ```
 
@@ -251,12 +319,21 @@ Make sure your repo is on GitHub. The `.env.local` file is gitignored — never 
 2. Vercel auto-detects Next.js — no build settings need to change.
 3. Before deploying, add your environment variables under **Environment Variables**:
 
-   | Name | Value |
-   |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+   | Name | Required | Value |
+   |---|---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Your Supabase anon/public key |
+   | `SUPABASE_SERVICE_ROLE_KEY` | For email reminders | Supabase service_role key |
+   | `CRON_SECRET` | For email reminders | Random secret string to secure the cron endpoint |
+   | `EMAIL_SMTP_HOST` | For email reminders | SMTP host (e.g. `smtp.gmail.com`) |
+   | `EMAIL_SMTP_USER` | For email reminders | SMTP login |
+   | `EMAIL_SMTP_PASS` | For email reminders | SMTP password |
+   | `EMAIL_FROM` | No | Sender address (defaults to `EMAIL_SMTP_USER`) |
+   | `EMAIL_SMTP_PORT` | No | SMTP port (defaults to `465`) |
 
 4. Click **Deploy**. Vercel builds and hosts the app, giving you a `.vercel.app` URL.
+
+The `vercel.json` in the repo root configures a daily cron job at 09:00 UTC that hits `/api/cron/event-email-reminders`. Vercel Cron requires the Hobby plan or above.
 
 ### 3. Configure Supabase auth URLs
 
@@ -272,7 +349,7 @@ This is required for email confirmation and password-reset links to redirect use
 
 ### Environment variables for local dev
 
-Copy `.env.example` to `.env.local` and fill in your Supabase credentials. Local dev continues to use `http://localhost:3000` automatically.
+Copy `.env.local.example` to `.env.local` and fill in your Supabase credentials. Local dev continues to use `http://localhost:3000` automatically.
 
 ## Security Notes
 
