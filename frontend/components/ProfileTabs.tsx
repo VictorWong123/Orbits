@@ -53,6 +53,7 @@ export default function ProfileTabs({ profile, facts, events, onMutate }: Props)
   const [reminderEventTitle, setReminderEventTitle] = useState("");
 
   const visibleFacts = facts.filter((f) => !deletedFactIds.has(f.id));
+  const groupedFacts = groupFactsByCategory(visibleFacts);
   const visibleEvents = events.filter((e) => !deletedEventIds.has(e.id));
   const tags = [
     ...new Set(
@@ -62,6 +63,7 @@ export default function ProfileTabs({ profile, facts, events, onMutate }: Props)
   const infoFacts = visibleFacts.filter(
     (f) => f.category && f.category !== "general"
   );
+  const groupedInfoFacts = groupFactsByCategory(infoFacts);
 
   /**
    * Optimistically removes a fact, then confirms via the store.
@@ -151,43 +153,54 @@ export default function ProfileTabs({ profile, facts, events, onMutate }: Props)
                   onSaved={onMutate}
                 />
               )}
-              {infoFacts.map((fact) => (
-                <InfoField
-                  key={fact.id}
-                  label={formatCategory(fact.category)}
-                  value={fact.content}
-                />
+              {groupedInfoFacts.map((group) => (
+                <div key={group.category} className="py-4">
+                  <p className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">
+                    {formatCategory(group.category)}
+                  </p>
+                  {group.facts.map((fact) => (
+                    <p key={fact.id} className="text-base font-semibold text-[#1A3021] mt-0.5">
+                      {fact.content}
+                    </p>
+                  ))}
+                </div>
               ))}
             </div>
           )}
 
-          {/* Facts / notes */}
+          {/* Facts / notes — grouped by category */}
           {visibleFacts.length > 0 ? (
-            <ul className="space-y-2">
-              {visibleFacts.map((fact) => (
-                <li key={fact.id} className="overflow-hidden rounded-3xl shadow-sm">
-                  <SwipeToDelete
-                    onDelete={() => handleDeleteFact(fact.id)}
-                    confirmTitle="Delete note?"
-                    confirmMessage="This note will be permanently deleted. This cannot be undone."
-                    confirmLabel="Delete"
-                  >
-                    <div className="flex items-start gap-3 bg-white px-4 py-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#1A3021]">
-                          {fact.content}
-                        </p>
-                        {fact.category && fact.category !== "general" && (
-                          <p className="text-xs text-[var(--color-accent)] mt-1 italic">
-                            {fact.category}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </SwipeToDelete>
-                </li>
+            <div className="space-y-2">
+              {groupedFacts.map((group) => (
+                <div key={group.category} className="overflow-hidden rounded-3xl shadow-sm bg-white">
+                  {group.category !== "general" && (
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)] px-4 pt-3">
+                      {group.category}
+                    </p>
+                  )}
+                  <ul className="divide-y divide-[var(--color-primary-light)]">
+                    {group.facts.map((fact) => (
+                      <li key={fact.id}>
+                        <SwipeToDelete
+                          onDelete={() => handleDeleteFact(fact.id)}
+                          confirmTitle="Delete note?"
+                          confirmMessage="This note will be permanently deleted. This cannot be undone."
+                          confirmLabel="Delete"
+                        >
+                          <div className="flex items-start gap-3 px-4 py-4">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-[#1A3021]">
+                                {fact.content}
+                              </p>
+                            </div>
+                          </div>
+                        </SwipeToDelete>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
             <p className="text-sm italic text-[var(--color-accent)] text-center py-2">
               No notes yet. Tap <strong>Add</strong> to write one.
@@ -292,6 +305,30 @@ export default function ProfileTabs({ profile, facts, events, onMutate }: Props)
       />
     </div>
   );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+interface FactGroup {
+  category: string;
+  facts: Fact[];
+}
+
+/**
+ * Groups facts by category, preserving first-seen category order.
+ * Within each group the original (creation) order is preserved.
+ */
+function groupFactsByCategory(facts: Fact[]): FactGroup[] {
+  const groups = new Map<string, Fact[]>();
+  for (const f of facts) {
+    const key = f.category || "general";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(f);
+  }
+  return Array.from(groups, ([category, groupFacts]) => ({
+    category,
+    facts: groupFacts,
+  }));
 }
 
 // ── BirthdayField ─────────────────────────────────────────────────────────────
